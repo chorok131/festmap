@@ -31,3 +31,6 @@ app/android/app/.cxx/
 
 # ── 백업 placeholder(불필요) ──
 app/assets/sample_map.placeholder.png
+
+# Claude Code 로컬 설정(기기별)
+.claude/settings.local.json
