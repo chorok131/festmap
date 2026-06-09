@@ -1,0 +1,33 @@
+# ── macOS ──
+.DS_Store
+
+# ── 임시/대용량 ──
+/tmp/
+*.log
+
+# ── Flutter 빌드 산출물 (용량 큼, 재생성 가능) ──
+app/build/
+app/.dart_tool/
+app/.flutter-plugins
+app/.flutter-plugins-dependencies
+app/.packages
+app/pubspec.lock
+app/**/build/
+
+# iOS
+app/ios/Pods/
+app/ios/.symlinks/
+app/ios/Flutter/Flutter.framework
+app/ios/Flutter/Flutter.podspec
+app/ios/Flutter/ephemeral/
+app/ios/Flutter/flutter_export_environment.sh
+app/ios/Flutter/Generated.xcconfig
+
+# Android
+app/android/.gradle/
+app/android/local.properties
+app/android/key.properties
+app/android/app/.cxx/
+
+# ── 백업 placeholder(불필요) ──
+app/assets/sample_map.placeholder.png
