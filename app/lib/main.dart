@@ -39,6 +39,7 @@ class _MapPageState extends State<MapPage> {
   final _map = MapController();
 
   double _w = 0, _h = 0;        // 약도 픽셀 크기
+  double _k = 1;                // 픽셀→CRS.simple 좌표 스케일(위/경도 한계 회피)
   List<double>? _hom;           // 메르카토르→픽셀 호모그래피(8)
   double _northAngle = 0;       // 약도상 '북'의 화면각(rad, y-down)
   String _event = '', _imageAsset = '';
@@ -72,6 +73,7 @@ class _MapPageState extends State<MapPage> {
     final bytes = (await rootBundle.load(_imageAsset)).buffer.asUint8List();
     final frame = await (await ui.instantiateImageCodec(bytes)).getNextFrame();
     _w = frame.image.width.toDouble(); _h = frame.image.height.toDouble();
+    _k = math.min(85.0 / _h, 175.0 / _w); // 위도≤90·경도≤180 안으로
 
     final src = [
       [_mx(lng('topLeft')), _my(lat('topLeft'))],
@@ -97,8 +99,8 @@ class _MapPageState extends State<MapPage> {
     return Offset((h[0] * X + h[1] * Y + h[2]) / w, (h[3] * X + h[4] * Y + h[5]) / w);
   }
 
-  // 픽셀(px,py) → CRS.simple 좌표(LatLng): lat = H-py(위가 북), lng = px
-  LatLng _pixelToMap(Offset p) => LatLng(_h - p.dy, p.dx);
+  // 픽셀(px,py) → CRS.simple 좌표(LatLng): lat = (H-py)·k(위가 북), lng = px·k
+  LatLng _pixelToMap(Offset p) => LatLng((_h - p.dy) * _k, p.dx * _k);
 
   List<double> _homography(List<List<double>> s, List<List<double>> d) {
     final A = <List<double>>[]; final b = <double>[];
@@ -151,8 +153,18 @@ class _MapPageState extends State<MapPage> {
     }
   }
 
-  LatLngBounds get _bounds => LatLngBounds(const LatLng(0, 0), LatLng(_h, _w));
-  void _fitAll() => _map.fitCamera(CameraFit.bounds(bounds: _bounds, padding: const EdgeInsets.all(10)));
+  LatLngBounds get _bounds => LatLngBounds(const LatLng(0, 0), LatLng(_h * _k, _w * _k));
+
+  // CRS.simple: scale = 256·2^zoom. 약도 전체가 화면에 들어오는 줌을 직접 계산.
+  void _fitAll() {
+    final s = _map.camera.size;
+    const pad = 24.0;
+    final lngSpan = _w * _k, latSpan = _h * _k;
+    if (lngSpan <= 0 || latSpan <= 0 || s.width <= 1) return;
+    final zx = math.log((s.width - pad) / (256 * lngSpan)) / math.ln2;
+    final zy = math.log((s.height - pad) / (256 * latSpan)) / math.ln2;
+    _map.move(LatLng(latSpan / 2, lngSpan / 2), math.min(zx, zy));
+  }
 
   void _centerOnMe() {
     if (_meLat == null) { _locateMe(); return; }
@@ -176,9 +188,11 @@ class _MapPageState extends State<MapPage> {
                 mapController: _map,
                 options: MapOptions(
                   crs: const CrsSimple(),
-                  initialCameraFit: CameraFit.bounds(bounds: _bounds, padding: const EdgeInsets.all(10)),
-                  minZoom: -6, maxZoom: 4,
+                  initialCenter: LatLng(_h * _k / 2, _w * _k / 2),
+                  initialZoom: -6,
+                  minZoom: -12, maxZoom: 2,
                   backgroundColor: const Color(0xFFEFEFEF),
+                  onMapReady: _fitAll, // 레이아웃 확정 후 줌 직접 계산해 전체 맞춤
                 ),
                 children: [
                   OverlayImageLayer(overlayImages: [
