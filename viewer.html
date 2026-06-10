@@ -4,6 +4,12 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>축제지도 · 현위치 보기</title>
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#2563eb" />
+  <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="축제지도" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <style>
@@ -22,15 +28,14 @@
       background: rgba(255,255,255,.95); padding: 8px 12px; border-radius: 10px; font-size: 12px; color: #555;
       box-shadow: 0 2px 10px rgba(0,0,0,.12); }
     #status.warn { background: #fff7ed; color: #9a3412; }
-    /* 따라가기 토글 (플로팅) */
     #follow { position: absolute; z-index: 1000; right: 14px; bottom: 56px; display: none;
       align-items: center; gap: 6px; border: 0; border-radius: 22px; padding: 9px 14px;
       background: #fff; color: #374151; font-size: 13px; font-weight: 600; box-shadow: 0 2px 10px rgba(0,0,0,.22); }
     #follow.on { background: #2563eb; color: #fff; }
     #follow .ic { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
-    /* 현위치 마커 */
     .me { position: relative; width: 0; height: 0; }
-    .me .cone { position: absolute; left: -60px; top: -60px; width: 120px; height: 120px; }
+    .me .cone { position: absolute; left: -60px; top: -60px; width: 120px; height: 120px;
+      transform-origin: center center; will-change: transform; }
     .me .dot { position: absolute; left: -9px; top: -9px; width: 18px; height: 18px; border-radius: 50%;
       background: #1d4ed8; border: 3px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.2), 0 1px 4px rgba(0,0,0,.4); }
   </style>
@@ -47,7 +52,7 @@
 
   <script>
     const LOCATE_ZOOM = 1;
-    const map = L.map('map', { crs: L.CRS.Simple, minZoom: -6, maxZoom: 4, zoomControl: true, attributionControl: false });
+    const map = L.map('map', { crs: L.CRS.Simple, minZoom: -6, maxZoom: 4, zoomControl: true, attributionControl: false, fadeAnimation: true });
     const statusEl = document.getElementById('status');
     const setStatus = (t, warn) => { statusEl.textContent = t; statusEl.classList.toggle('warn', !!warn); };
 
@@ -56,7 +61,7 @@
     const my = (lat) => R * Math.log(Math.tan(Math.PI / 4 + lat * rad / 2));
 
     let W = 0, H = 0, hom = null, northAngle = 0;
-    let meMarker = null, accCircle = null, heading = 0;
+    let meMarker = null, accCircle = null, coneEl = null, heading = 0;
     let located = false, follow = false;
 
     function solveLinear(A, b) {
@@ -85,57 +90,61 @@
       return [(hom[0] * X + hom[1] * Y + hom[2]) / w, (hom[3] * X + hom[4] * Y + hom[5]) / w];
     }
     const pxToLatLng = (px, py) => [H - py, px];
-    // 1m가 약도에서 몇 픽셀인지(위치 근처 기준)
     function pxPerMeter(lat, lng) {
       const a = toPixel(lat, lng), b = toPixel(lat + 1 / 111320, lng);
       return Math.hypot(b[0] - a[0], b[1] - a[1]);
     }
 
-    function coneSVG(angleDeg) {
+    // 콘 SVG는 고정(오른쪽 +x). 회전은 .cone div의 CSS transform으로만 → DOM 안 새로 그림(매끄러움)
+    function coneSVG() {
       const r = 50, half = 28 * rad;
       const x1 = 60 + r * Math.cos(-half), y1 = 60 + r * Math.sin(-half);
       const x2 = 60 + r * Math.cos(half), y2 = 60 + r * Math.sin(half);
-      return `<svg width="120" height="120" style="transform:rotate(${angleDeg}deg)">
+      return `<svg width="120" height="120">
         <defs><radialGradient id="g" cx="50%" cy="50%" r="50%">
           <stop offset="0%" stop-color="#3b82f6" stop-opacity="0.9"/>
           <stop offset="100%" stop-color="#3b82f6" stop-opacity="0.05"/></radialGradient></defs>
         <path d="M60,60 L${x1.toFixed(1)},${y1.toFixed(1)} A${r},${r} 0 0 1 ${x2.toFixed(1)},${y2.toFixed(1)} Z"
           fill="url(#g)" stroke="#1d4ed8" stroke-width="2"/></svg>`;
     }
-    function meIcon() {
-      const deg = northAngle * 180 / Math.PI + heading;
-      return L.divIcon({ className: '', iconSize: [0, 0],
-        html: `<div class="me"><div class="cone">${coneSVG(deg)}</div><div class="dot"></div></div>` });
+    function meIconHtml() { return `<div class="me"><div class="cone">${coneSVG()}</div><div class="dot"></div></div>`; }
+    function applyCone() {
+      if (!meMarker) return;
+      if (!coneEl) { const el = meMarker.getElement(); coneEl = el && el.querySelector('.cone'); }
+      if (coneEl) coneEl.style.transform = `rotate(${northAngle * 180 / Math.PI + heading}deg)`;
+    }
+    function ensureMarker(ll) {
+      if (meMarker) return;
+      meMarker = L.marker(ll, { icon: L.divIcon({ className: '', iconSize: [0, 0], html: meIconHtml() }), interactive: false, zIndexOffset: 1000 }).addTo(map);
+      applyCone();
     }
 
     function showMe(lat, lng, acc) {
       const [px, py] = toPixel(lat, lng);
       const ll = pxToLatLng(px, py);
       const outside = px < 0 || px > W || py < 0 || py > H;
+      const ppm = pxPerMeter(lat, lng);
 
-      // 정확도 원(약도 픽셀 단위 = CRS.Simple 단위)
-      const accPx = (acc || 0) * pxPerMeter(lat, lng);
+      const accPx = (acc || 0) * ppm;
       if (!accCircle) accCircle = L.circle(ll, { radius: accPx, color: '#1d4ed8', weight: 1, opacity: .4, fillColor: '#3b82f6', fillOpacity: .12, interactive: false }).addTo(map);
       else { accCircle.setLatLng(ll); accCircle.setRadius(accPx); }
 
-      if (!meMarker) meMarker = L.marker(ll, { icon: meIcon(), interactive: false, zIndexOffset: 1000 }).addTo(map);
-      else { meMarker.setLatLng(ll); meMarker.setIcon(meIcon()); }
+      ensureMarker(ll);
+      meMarker.setLatLng(ll);
+      applyCone();
 
-      if (!located) { located = true; follow = true; updateFollowBtn(); map.setView(ll, LOCATE_ZOOM); }
-      else if (follow && !outside) map.panTo(ll, { animate: true, duration: 0.4 });
+      if (!located) { located = true; follow = true; updateFollowBtn(); map.flyTo(ll, LOCATE_ZOOM, { duration: 0.8 }); }
+      else if (follow && !outside) map.panTo(ll, { animate: true, duration: 0.5 });
 
       if (outside) {
-        // 약도 가장자리까지 거리(근사)
         const cx = Math.min(Math.max(px, 0), W), cy = Math.min(Math.max(py, 0), H);
-        const m = Math.round(Math.hypot(px - cx, py - cy) / Math.max(pxPerMeter(lat, lng), 1e-6));
+        const m = Math.round(Math.hypot(px - cx, py - cy) / Math.max(ppm, 1e-6));
         setStatus(`현위치가 약도 범위 밖이에요 (약 ${m}m). 행사장 안에서 다시 확인하세요.`, true);
       } else {
         setStatus(`내 위치 표시 중 · 정확도 ±${Math.round(acc || 0)}m · 방향 ${Math.round(heading)}° · 따라가기 ${follow ? 'ON' : 'OFF'}`);
       }
     }
-    function refreshHeading() { if (meMarker) meMarker.setIcon(meIcon()); }
 
-    // 따라가기 토글
     const followBtn = document.getElementById('follow');
     function updateFollowBtn() {
       followBtn.style.display = located ? 'inline-flex' : 'none';
@@ -148,7 +157,6 @@
     });
     map.on('dragstart', () => { if (follow) { follow = false; updateFollowBtn(); } });
 
-    // 초기화
     (async function init() {
       const g = await (await fetch('georef.json')).json();
       document.getElementById('title').textContent = g.event || '축제지도';
@@ -167,7 +175,7 @@
     function onOrient(e) {
       let h = (e.webkitCompassHeading != null) ? e.webkitCompassHeading
             : (e.absolute && e.alpha != null) ? (360 - e.alpha) : null;
-      if (h != null) { heading = h; refreshHeading(); }
+      if (h != null) { heading = h; applyCone(); } // DOM 새로 안 그리고 회전만
     }
     document.getElementById('go').addEventListener('click', async () => {
       setStatus('권한 요청 중…');
@@ -189,6 +197,11 @@
         { enableHighAccuracy: true, maximumAge: 1000, timeout: 15000 }
       );
     });
+
+    // PWA: 서비스워커 등록(오프라인/약신호 대비)
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+    }
   </script>
 </body>
 </html>
