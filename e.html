@@ -11,8 +11,9 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="축제지도" />
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <!-- Leaflet 자체 호스팅: 행사장 혼잡망에서 외부 CDN 장애점 제거 + 오프라인 동작 -->
+  <link rel="stylesheet" href="vendor/leaflet.css" />
+  <script src="vendor/leaflet.js"></script>
   <script src="analytics.js"></script>
   <style>
     html, body { margin: 0; height: 100%; font-family: -apple-system, "Apple SD Gothic Neo", sans-serif; }
@@ -52,8 +53,20 @@
   </div>
   <div id="map"></div>
   <button id="follow"><span class="ic"></span><span id="followTxt">따라가기</span></button>
-  <div id="status">"내 위치"를 눌러 현재 위치를 약도 위에 표시하세요. (위치·나침반 권한 허용 필요)</div>
+  <div id="status">지도 불러오는 중…</div>
 
+  <script>
+    // 구형 브라우저 안전망: 아래 메인 스크립트가 문법 오류 등으로 죽으면(아주 오래된 폰) 안내만이라도 띄움
+    (function () {
+      var shown = false;
+      window.addEventListener('error', function (ev) {
+        if (shown) return;
+        if (ev && ev.target && ev.target !== window) return; // 리소스 로드 실패는 별도 처리
+        var s = document.getElementById('status');
+        if (s) { shown = true; s.textContent = '이 브라우저에서는 지도를 표시할 수 없어요. 크롬/사파리 최신 버전으로 열어주세요.'; s.className = 'warn'; }
+      });
+    })();
+  </script>
   <script>
     const LOCATE_ZOOM = 1;
     // ── 어느 행사인가: ?event=슬러그 (없으면 목록으로) ──────────────
@@ -169,6 +182,7 @@
     map.on('dragstart', () => { if (follow) { follow = false; updateFollowBtn(); } });
 
     (async function init() {
+      setStatus('지도 불러오는 중…');
       let g;
       try {
         g = await (await fetch(BASE + 'georef.json')).json();
@@ -180,7 +194,16 @@
       document.title = (g.event || '축제지도') + ' · 현위치 지도';
       document.getElementById('title').textContent = g.event || '축제지도';
       const imgUrl = BASE + g.image;
-      await new Promise((res) => { const im = new Image(); im.onload = () => { W = im.naturalWidth; H = im.naturalHeight; res(); }; im.src = imgUrl; });
+      const loaded = await new Promise((res) => {
+        const im = new Image();
+        im.onload = () => { W = im.naturalWidth; H = im.naturalHeight; res(true); };
+        im.onerror = () => res(false);
+        im.src = imgUrl;
+      });
+      if (!loaded) {
+        setStatus('약도 이미지를 불러오지 못했어요. 신호가 잡히는 곳에서 새로고침 해주세요.', true);
+        return;
+      }
       const bounds = [[0, 0], [H, W]];
       L.imageOverlay(imgUrl, bounds).addTo(map);
       map.fitBounds(bounds);
@@ -189,6 +212,7 @@
       const refLng = (g.corners.topLeft.lng + g.corners.bottomRight.lng) / 2;
       const p0 = toPixel(refLat, refLng), p1 = toPixel(refLat + 0.001, refLng);
       northAngle = Math.atan2(p1[1] - p0[1], p1[0] - p0[0]);
+      setStatus('"내 위치"를 눌러 현재 위치를 약도 위에 표시하세요. (위치·나침반 권한 허용 필요)');
       Festmap.track('open', { event: SLUG });
     })();
 

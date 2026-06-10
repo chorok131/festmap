@@ -127,7 +127,7 @@
         const order = { upcoming: 0, live: 1, past: 2 };
         events.sort((a, b) => (order[a.status] ?? 9) - (order[b.status] ?? 9) || (b.start || '').localeCompare(a.start || ''));
         list.innerHTML = events.map(ev => {
-          const thumb = `events/${ev.slug}/map.png`;
+          const thumb = ev.image || `events/${ev.slug}/map.png`;  // 뷰어와 같은 이미지 → 캐시 예열
           const st = ev.status || 'upcoming';
           return `<a class="card" href="e.html?event=${encodeURIComponent(ev.slug)}">
             <div class="thumb" style="background-image:url('${thumb}')"></div>
@@ -139,6 +139,11 @@
         }).join('');
       })
       .catch(() => { document.getElementById('empty').textContent = '행사 목록을 불러오지 못했습니다.'; });
+
+    // 오프라인 대비: 랜딩만 들어와도 서비스워커가 행사 약도까지 미리 캐시
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+    }
   </script>
 </body>
 </html>
