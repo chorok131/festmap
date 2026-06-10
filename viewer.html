@@ -21,6 +21,13 @@
     #status { position: absolute; z-index: 1000; left: 10px; right: 10px; bottom: 10px;
       background: rgba(255,255,255,.95); padding: 8px 12px; border-radius: 10px; font-size: 12px; color: #555;
       box-shadow: 0 2px 10px rgba(0,0,0,.12); }
+    #status.warn { background: #fff7ed; color: #9a3412; }
+    /* 따라가기 토글 (플로팅) */
+    #follow { position: absolute; z-index: 1000; right: 14px; bottom: 56px; display: none;
+      align-items: center; gap: 6px; border: 0; border-radius: 22px; padding: 9px 14px;
+      background: #fff; color: #374151; font-size: 13px; font-weight: 600; box-shadow: 0 2px 10px rgba(0,0,0,.22); }
+    #follow.on { background: #2563eb; color: #fff; }
+    #follow .ic { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
     /* 현위치 마커 */
     .me { position: relative; width: 0; height: 0; }
     .me .cone { position: absolute; left: -60px; top: -60px; width: 120px; height: 120px; }
@@ -35,19 +42,22 @@
     <button id="go">내 위치</button>
   </div>
   <div id="map"></div>
+  <button id="follow"><span class="ic"></span><span id="followTxt">따라가기</span></button>
   <div id="status">“내 위치”를 눌러 현재 위치를 약도 위에 표시하세요. (위치·나침반 권한 허용 필요)</div>
 
   <script>
+    const LOCATE_ZOOM = 1;
     const map = L.map('map', { crs: L.CRS.Simple, minZoom: -6, maxZoom: 4, zoomControl: true, attributionControl: false });
     const statusEl = document.getElementById('status');
-    const setStatus = (t) => statusEl.textContent = t;
+    const setStatus = (t, warn) => { statusEl.textContent = t; statusEl.classList.toggle('warn', !!warn); };
 
-    // 웹 메르카토르
     const R = 6378137.0, rad = Math.PI / 180;
     const mx = (lng) => R * lng * rad;
     const my = (lat) => R * Math.log(Math.tan(Math.PI / 4 + lat * rad / 2));
 
-    let W = 0, H = 0, hom = null, northAngle = 0, meMarker = null, heading = 0, lastPx = null;
+    let W = 0, H = 0, hom = null, northAngle = 0;
+    let meMarker = null, accCircle = null, heading = 0;
+    let located = false, follow = false;
 
     function solveLinear(A, b) {
       const n = b.length, M = A.map((r, i) => r.concat([b[i]]));
@@ -59,10 +69,8 @@
       }
       return M.map((row, i) => row[n] / row[i]);
     }
-    // 메르카토르(코너)→픽셀(코너) 호모그래피
-    function buildHom(corners) {
-      const c = corners;
-      const src = [['topLeft'], ['topRight'], ['bottomLeft'], ['bottomRight']].map(([k]) => [mx(c[k].lng), my(c[k].lat)]);
+    function buildHom(c) {
+      const src = ['topLeft', 'topRight', 'bottomLeft', 'bottomRight'].map(k => [mx(c[k].lng), my(c[k].lat)]);
       const dst = [[0, 0], [W, 0], [0, H], [W, H]];
       const A = [], b = [];
       for (let i = 0; i < 4; i++) {
@@ -76,10 +84,13 @@
       const X = mx(lng), Y = my(lat), w = hom[6] * X + hom[7] * Y + 1;
       return [(hom[0] * X + hom[1] * Y + hom[2]) / w, (hom[3] * X + hom[4] * Y + hom[5]) / w];
     }
-    // 픽셀(px,py) → Leaflet CRS.Simple 좌표 [y=H-py, x=px]
     const pxToLatLng = (px, py) => [H - py, px];
+    // 1m가 약도에서 몇 픽셀인지(위치 근처 기준)
+    function pxPerMeter(lat, lng) {
+      const a = toPixel(lat, lng), b = toPixel(lat + 1 / 111320, lng);
+      return Math.hypot(b[0] - a[0], b[1] - a[1]);
+    }
 
-    // 방향 콘 SVG (오른쪽 +x 방향으로, CSS로 회전)
     function coneSVG(angleDeg) {
       const r = 50, half = 28 * rad;
       const x1 = 60 + r * Math.cos(-half), y1 = 60 + r * Math.sin(-half);
@@ -92,48 +103,74 @@
           fill="url(#g)" stroke="#1d4ed8" stroke-width="2"/></svg>`;
     }
     function meIcon() {
-      // 콘 방향(화면각, deg) = 약도-북(northAngle) + heading
       const deg = northAngle * 180 / Math.PI + heading;
       return L.divIcon({ className: '', iconSize: [0, 0],
         html: `<div class="me"><div class="cone">${coneSVG(deg)}</div><div class="dot"></div></div>` });
     }
+
     function showMe(lat, lng, acc) {
-      const [px, py] = toPixel(lat, lng); lastPx = [px, py];
+      const [px, py] = toPixel(lat, lng);
       const ll = pxToLatLng(px, py);
-      if (!meMarker) { meMarker = L.marker(ll, { icon: meIcon(), interactive: false }).addTo(map); map.setView(ll, Math.max(map.getZoom(), 1)); }
+      const outside = px < 0 || px > W || py < 0 || py > H;
+
+      // 정확도 원(약도 픽셀 단위 = CRS.Simple 단위)
+      const accPx = (acc || 0) * pxPerMeter(lat, lng);
+      if (!accCircle) accCircle = L.circle(ll, { radius: accPx, color: '#1d4ed8', weight: 1, opacity: .4, fillColor: '#3b82f6', fillOpacity: .12, interactive: false }).addTo(map);
+      else { accCircle.setLatLng(ll); accCircle.setRadius(accPx); }
+
+      if (!meMarker) meMarker = L.marker(ll, { icon: meIcon(), interactive: false, zIndexOffset: 1000 }).addTo(map);
       else { meMarker.setLatLng(ll); meMarker.setIcon(meIcon()); }
-      setStatus(`내 위치 표시 중${acc ? ` (정확도 ±${Math.round(acc)}m)` : ''} · 방향 ${Math.round(heading)}°`);
+
+      if (!located) { located = true; follow = true; updateFollowBtn(); map.setView(ll, LOCATE_ZOOM); }
+      else if (follow && !outside) map.panTo(ll, { animate: true, duration: 0.4 });
+
+      if (outside) {
+        // 약도 가장자리까지 거리(근사)
+        const cx = Math.min(Math.max(px, 0), W), cy = Math.min(Math.max(py, 0), H);
+        const m = Math.round(Math.hypot(px - cx, py - cy) / Math.max(pxPerMeter(lat, lng), 1e-6));
+        setStatus(`현위치가 약도 범위 밖이에요 (약 ${m}m). 행사장 안에서 다시 확인하세요.`, true);
+      } else {
+        setStatus(`내 위치 표시 중 · 정확도 ±${Math.round(acc || 0)}m · 방향 ${Math.round(heading)}° · 따라가기 ${follow ? 'ON' : 'OFF'}`);
+      }
     }
     function refreshHeading() { if (meMarker) meMarker.setIcon(meIcon()); }
 
-    // 시작
+    // 따라가기 토글
+    const followBtn = document.getElementById('follow');
+    function updateFollowBtn() {
+      followBtn.style.display = located ? 'inline-flex' : 'none';
+      followBtn.classList.toggle('on', follow);
+      document.getElementById('followTxt').textContent = follow ? '따라가는 중' : '따라가기';
+    }
+    followBtn.addEventListener('click', () => {
+      follow = !follow; updateFollowBtn();
+      if (follow && meMarker) map.panTo(meMarker.getLatLng(), { animate: true });
+    });
+    map.on('dragstart', () => { if (follow) { follow = false; updateFollowBtn(); } });
+
+    // 초기화
     (async function init() {
       const g = await (await fetch('georef.json')).json();
       document.getElementById('title').textContent = g.event || '축제지도';
-      // 이미지 크기
       await new Promise((res) => { const im = new Image(); im.onload = () => { W = im.naturalWidth; H = im.naturalHeight; res(); }; im.src = g.image; });
       const bounds = [[0, 0], [H, W]];
       L.imageOverlay(g.image, bounds).addTo(map);
       map.fitBounds(bounds);
       hom = buildHom(g.corners);
-      // 약도-북 방향(화면각)
       const refLat = (g.corners.topLeft.lat + g.corners.bottomRight.lat) / 2;
       const refLng = (g.corners.topLeft.lng + g.corners.bottomRight.lng) / 2;
       const p0 = toPixel(refLat, refLng), p1 = toPixel(refLat + 0.001, refLng);
       northAngle = Math.atan2(p1[1] - p0[1], p1[0] - p0[0]);
-      window._showMe = showMe; // 테스트용
+      window._showMe = showMe;
     })();
 
-    // 방향(나침반)
     function onOrient(e) {
       let h = (e.webkitCompassHeading != null) ? e.webkitCompassHeading
             : (e.absolute && e.alpha != null) ? (360 - e.alpha) : null;
       if (h != null) { heading = h; refreshHeading(); }
     }
-
     document.getElementById('go').addEventListener('click', async () => {
       setStatus('권한 요청 중…');
-      // iOS: 나침반 권한(사용자 제스처 필요)
       try {
         if (window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === 'function') {
           const s = await DeviceOrientationEvent.requestPermission();
@@ -143,12 +180,12 @@
           window.addEventListener('deviceorientation', onOrient, true);
         }
       } catch (e) {}
-      // 위치(실시간)
-      if (!navigator.geolocation) { setStatus('이 브라우저는 위치를 지원하지 않습니다.'); return; }
+      if (!navigator.geolocation) { setStatus('이 브라우저는 위치를 지원하지 않습니다.', true); return; }
       setStatus('내 위치 찾는 중…');
+      follow = true;
       navigator.geolocation.watchPosition(
         (p) => showMe(p.coords.latitude, p.coords.longitude, p.coords.accuracy),
-        (err) => setStatus('위치 오류: ' + err.message + ' (https에서만 동작)'),
+        (err) => setStatus('위치 오류: ' + err.message + ' (https에서만 동작)', true),
         { enableHighAccuracy: true, maximumAge: 1000, timeout: 15000 }
       );
     });
