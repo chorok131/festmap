@@ -1,7 +1,9 @@
 // 축제지도 서비스워커 — 오프라인/약신호 대비 (stale-while-revalidate)
-const CACHE = 'festmap-v1';
-const CORE = [
-  './viewer.html', './georef.json', './seoulforest_map.png', './manifest.json',
+// 구조 변경 시 이 버전을 올리면(activate에서) 옛 캐시가 자동 폐기됨 → 기존 사용자 화면 고착 방지
+const CACHE = 'festmap-v2';
+const CORE = [   // 앱 셸만 미리 캐시. 행사별 약도/georef는 방문 시 on-demand 캐시.
+  './', './index.html', './e.html', './analytics.js',
+  './events/events.json', './manifest.json',
   './icon-192.png', './icon-512.png', './apple-touch-icon.png',
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',

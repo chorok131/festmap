@@ -1,7 +1,7 @@
 {
-  "name": "축제지도 · 현위치 보기",
+  "name": "축제지도 · 행사장 현위치 지도",
   "short_name": "축제지도",
-  "start_url": "./viewer.html",
+  "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",

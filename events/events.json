@@ -1,0 +1,15 @@
+{
+  "_comment": "행사 레지스트리. 새 행사 추가 = events/<슬러그>/ 폴더(georef.json+map.png) 만들고 여기에 한 블록 추가. status: upcoming | live | past",
+  "events": [
+    {
+      "slug": "seoulforest-2026",
+      "name": "서울숲 정원박람회",
+      "venue": "서울숲공원",
+      "city": "서울 성동구",
+      "start": "2026-05-01",
+      "end": "2026-05-10",
+      "status": "past",
+      "summary": "약도 위에서 내 현재 위치와 방향을 실시간으로 보여주는 서울숲 정원박람회 길찾기 지도."
+    }
+  ]
+}

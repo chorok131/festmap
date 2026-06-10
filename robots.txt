@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://chorok131.github.io/festmap/sitemap.xml
