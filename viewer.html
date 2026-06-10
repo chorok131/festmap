@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>축제지도 · 현위치 보기</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    html, body { margin: 0; height: 100%; font-family: -apple-system, "Apple SD Gothic Neo", sans-serif; }
+    #map { position: absolute; inset: 0; background: #eef0f2; }
+    #bar {
+      position: absolute; z-index: 1000; top: 10px; left: 10px; right: 10px;
+      display: flex; align-items: center; gap: 8px;
+      background: rgba(255,255,255,.95); padding: 8px 12px; border-radius: 12px;
+      box-shadow: 0 2px 10px rgba(0,0,0,.15);
+    }
+    #title { font-weight: 700; font-size: 15px; }
+    #bar .sp { flex: 1; }
+    #go { border: 0; border-radius: 8px; padding: 9px 14px; background: #2563eb; color: #fff; font-size: 14px; font-weight: 600; }
+    #status { position: absolute; z-index: 1000; left: 10px; right: 10px; bottom: 10px;
+      background: rgba(255,255,255,.95); padding: 8px 12px; border-radius: 10px; font-size: 12px; color: #555;
+      box-shadow: 0 2px 10px rgba(0,0,0,.12); }
+    /* 현위치 마커 */
+    .me { position: relative; width: 0; height: 0; }
+    .me .cone { position: absolute; left: -60px; top: -60px; width: 120px; height: 120px; }
+    .me .dot { position: absolute; left: -9px; top: -9px; width: 18px; height: 18px; border-radius: 50%;
+      background: #1d4ed8; border: 3px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.2), 0 1px 4px rgba(0,0,0,.4); }
+  </style>
+</head>
+<body>
+  <div id="bar">
+    <span id="title">축제지도</span>
+    <span class="sp"></span>
+    <button id="go">내 위치</button>
+  </div>
+  <div id="map"></div>
+  <div id="status">“내 위치”를 눌러 현재 위치를 약도 위에 표시하세요. (위치·나침반 권한 허용 필요)</div>
+
+  <script>
+    const map = L.map('map', { crs: L.CRS.Simple, minZoom: -6, maxZoom: 4, zoomControl: true, attributionControl: false });
+    const statusEl = document.getElementById('status');
+    const setStatus = (t) => statusEl.textContent = t;
+
+    // 웹 메르카토르
+    const R = 6378137.0, rad = Math.PI / 180;
+    const mx = (lng) => R * lng * rad;
+    const my = (lat) => R * Math.log(Math.tan(Math.PI / 4 + lat * rad / 2));
+
+    let W = 0, H = 0, hom = null, northAngle = 0, meMarker = null, heading = 0, lastPx = null;
+
+    function solveLinear(A, b) {
+      const n = b.length, M = A.map((r, i) => r.concat([b[i]]));
+      for (let col = 0; col < n; col++) {
+        let piv = col; for (let r = col + 1; r < n; r++) if (Math.abs(M[r][col]) > Math.abs(M[piv][col])) piv = r;
+        [M[col], M[piv]] = [M[piv], M[col]];
+        const d = M[col][col]; if (Math.abs(d) < 1e-15) continue;
+        for (let r = 0; r < n; r++) if (r !== col) { const f = M[r][col] / d; for (let c = col; c <= n; c++) M[r][c] -= f * M[col][c]; }
+      }
+      return M.map((row, i) => row[n] / row[i]);
+    }
+    // 메르카토르(코너)→픽셀(코너) 호모그래피
+    function buildHom(corners) {
+      const c = corners;
+      const src = [['topLeft'], ['topRight'], ['bottomLeft'], ['bottomRight']].map(([k]) => [mx(c[k].lng), my(c[k].lat)]);
+      const dst = [[0, 0], [W, 0], [0, H], [W, H]];
+      const A = [], b = [];
+      for (let i = 0; i < 4; i++) {
+        const [X, Y] = src[i], [px, py] = dst[i];
+        A.push([X, Y, 1, 0, 0, 0, -px * X, -px * Y]); b.push(px);
+        A.push([0, 0, 0, X, Y, 1, -py * X, -py * Y]); b.push(py);
+      }
+      return solveLinear(A, b);
+    }
+    function toPixel(lat, lng) {
+      const X = mx(lng), Y = my(lat), w = hom[6] * X + hom[7] * Y + 1;
+      return [(hom[0] * X + hom[1] * Y + hom[2]) / w, (hom[3] * X + hom[4] * Y + hom[5]) / w];
+    }
+    // 픽셀(px,py) → Leaflet CRS.Simple 좌표 [y=H-py, x=px]
+    const pxToLatLng = (px, py) => [H - py, px];
+
+    // 방향 콘 SVG (오른쪽 +x 방향으로, CSS로 회전)
+    function coneSVG(angleDeg) {
+      const r = 50, half = 28 * rad;
+      const x1 = 60 + r * Math.cos(-half), y1 = 60 + r * Math.sin(-half);
+      const x2 = 60 + r * Math.cos(half), y2 = 60 + r * Math.sin(half);
+      return `<svg width="120" height="120" style="transform:rotate(${angleDeg}deg)">
+        <defs><radialGradient id="g" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#3b82f6" stop-opacity="0.9"/>
+          <stop offset="100%" stop-color="#3b82f6" stop-opacity="0.05"/></radialGradient></defs>
+        <path d="M60,60 L${x1.toFixed(1)},${y1.toFixed(1)} A${r},${r} 0 0 1 ${x2.toFixed(1)},${y2.toFixed(1)} Z"
+          fill="url(#g)" stroke="#1d4ed8" stroke-width="2"/></svg>`;
+    }
+    function meIcon() {
+      // 콘 방향(화면각, deg) = 약도-북(northAngle) + heading
+      const deg = northAngle * 180 / Math.PI + heading;
+      return L.divIcon({ className: '', iconSize: [0, 0],
+        html: `<div class="me"><div class="cone">${coneSVG(deg)}</div><div class="dot"></div></div>` });
+    }
+    function showMe(lat, lng, acc) {
+      const [px, py] = toPixel(lat, lng); lastPx = [px, py];
+      const ll = pxToLatLng(px, py);
+      if (!meMarker) { meMarker = L.marker(ll, { icon: meIcon(), interactive: false }).addTo(map); map.setView(ll, Math.max(map.getZoom(), 1)); }
+      else { meMarker.setLatLng(ll); meMarker.setIcon(meIcon()); }
+      setStatus(`내 위치 표시 중${acc ? ` (정확도 ±${Math.round(acc)}m)` : ''} · 방향 ${Math.round(heading)}°`);
+    }
+    function refreshHeading() { if (meMarker) meMarker.setIcon(meIcon()); }
+
+    // 시작
+    (async function init() {
+      const g = await (await fetch('georef.json')).json();
+      document.getElementById('title').textContent = g.event || '축제지도';
+      // 이미지 크기
+      await new Promise((res) => { const im = new Image(); im.onload = () => { W = im.naturalWidth; H = im.naturalHeight; res(); }; im.src = g.image; });
+      const bounds = [[0, 0], [H, W]];
+      L.imageOverlay(g.image, bounds).addTo(map);
+      map.fitBounds(bounds);
+      hom = buildHom(g.corners);
+      // 약도-북 방향(화면각)
+      const refLat = (g.corners.topLeft.lat + g.corners.bottomRight.lat) / 2;
+      const refLng = (g.corners.topLeft.lng + g.corners.bottomRight.lng) / 2;
+      const p0 = toPixel(refLat, refLng), p1 = toPixel(refLat + 0.001, refLng);
+      northAngle = Math.atan2(p1[1] - p0[1], p1[0] - p0[0]);
+      window._showMe = showMe; // 테스트용
+    })();
+
+    // 방향(나침반)
+    function onOrient(e) {
+      let h = (e.webkitCompassHeading != null) ? e.webkitCompassHeading
+            : (e.absolute && e.alpha != null) ? (360 - e.alpha) : null;
+      if (h != null) { heading = h; refreshHeading(); }
+    }
+
+    document.getElementById('go').addEventListener('click', async () => {
+      setStatus('권한 요청 중…');
+      // iOS: 나침반 권한(사용자 제스처 필요)
+      try {
+        if (window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === 'function') {
+          const s = await DeviceOrientationEvent.requestPermission();
+          if (s === 'granted') window.addEventListener('deviceorientation', onOrient, true);
+        } else {
+          window.addEventListener('deviceorientationabsolute', onOrient, true);
+          window.addEventListener('deviceorientation', onOrient, true);
+        }
+      } catch (e) {}
+      // 위치(실시간)
+      if (!navigator.geolocation) { setStatus('이 브라우저는 위치를 지원하지 않습니다.'); return; }
+      setStatus('내 위치 찾는 중…');
+      navigator.geolocation.watchPosition(
+        (p) => showMe(p.coords.latitude, p.coords.longitude, p.coords.accuracy),
+        (err) => setStatus('위치 오류: ' + err.message + ' (https에서만 동작)'),
+        { enableHighAccuracy: true, maximumAge: 1000, timeout: 15000 }
+      );
+    });
+  </script>
+</body>
+</html>
