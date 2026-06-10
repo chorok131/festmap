@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>정렬 확인 · 약도 ↔ 실제지도</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-distortableimage@0.21.9/dist/leaflet.distortableimage.css" />
+  <script src="https://unpkg.com/leaflet-distortableimage@0.21.9/dist/leaflet.distortableimage.js"></script>
+  <style>
+    html,body{margin:0;height:100%;font-family:-apple-system,sans-serif}
+    #map{position:absolute;inset:0}
+    #bar{position:absolute;z-index:1000;top:10px;left:10px;right:10px;display:flex;gap:10px;align-items:center;
+      background:rgba(255,255,255,.95);padding:8px 12px;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.15);font-size:13px}
+    #bar b{font-weight:700}
+    .gcp{width:22px;height:22px;border-radius:50%;background:#fff;border:3px solid #e5147e;display:flex;align-items:center;justify-content:center;font:bold 11px sans-serif;color:#e5147e}
+  </style>
+</head>
+<body>
+  <div id="bar">
+    <b>정렬 확인</b>
+    <span>투명도 <input id="op" type="range" min="0" max="1" step="0.05" value="0.55"></span>
+    <span id="info" style="color:#666"></span>
+  </div>
+  <div id="map"></div>
+  <script>
+    const map=L.map('map');
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:20,attribution:'© OSM'}).addTo(map);
+    let overlay=null;
+    const op=document.getElementById('op');
+    function applyOp(){const el=overlay&&overlay.getElement();if(el)el.style.opacity=op.value;}
+    op.addEventListener('input',applyOp);
+    (async function(){
+      const g=await (await fetch('georef.json')).json();
+      const c=g.corners;
+      const corners=[c.topLeft,c.topRight,c.bottomLeft,c.bottomRight].map(p=>L.latLng(p.lat,p.lng));
+      overlay=L.distortableImageOverlay(g.image,{corners:corners.slice(),selected:false,suppressToolbar:true}).addTo(map);
+      overlay.on('load',applyOp); setTimeout(applyOp,300);
+      // GCP 표시
+      (g.gcps||[]).forEach((p,i)=>L.marker([p.lat,p.lng],{icon:L.divIcon({className:'',iconSize:[22,22],iconAnchor:[11,11],html:`<div class="gcp">${i+1}</div>`})}).addTo(map));
+      map.fitBounds(L.latLngBounds(corners).pad(0.1));
+      document.getElementById('info').textContent=`${g.event} · ${g.transform} · 대응점 ${(g.gcps||[]).length}개`;
+    })();
+  </script>
+</body>
+</html>
