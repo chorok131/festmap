@@ -1,7 +1,7 @@
 {
   "event": "서울숲 정원박람회",
   "baseMap": "OSM",
-  "image": "map.png",
+  "image": "map_labeled.png",
   "transform": "similarity",
   "corners": {
     "topLeft":     { "lat": 37.54842017561953, "lng": 127.0364450498375 },
