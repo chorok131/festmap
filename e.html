@@ -14,6 +14,7 @@
   <!-- Leaflet 자체 호스팅: 행사장 혼잡망에서 외부 CDN 장애점 제거 + 오프라인 동작 -->
   <link rel="stylesheet" href="vendor/leaflet.css" />
   <script src="vendor/leaflet.js"></script>
+  <script src="firebase-config.js"></script>
   <script src="analytics.js"></script>
   <style>
     html, body { margin: 0; height: 100%; font-family: -apple-system, "Apple SD Gothic Neo", sans-serif; }
@@ -193,6 +194,7 @@
       }
       document.title = (g.event || '축제지도') + ' · 현위치 지도';
       document.getElementById('title').textContent = g.event || '축제지도';
+      Festmap.setConfig({ mode: g.track || 'counts' });   // 행사별: 'counts'(기본) | 'full'(동선) | 'off'
       const imgUrl = BASE + g.image;
       const loaded = await new Promise((res) => {
         const im = new Image();
