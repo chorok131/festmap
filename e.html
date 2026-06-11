@@ -79,6 +79,11 @@
     #navbar .dist { font-weight: 700; color: #93c5fd; }
     #navClose { border: 0; background: rgba(255,255,255,.15); color: #fff; border-radius: 8px; padding: 6px 10px; font-size: 13px; }
     #poiToggle { border: 0; border-radius: 8px; padding: 9px 12px; background: #e5e7eb; color: #111; font-size: 14px; font-weight: 600; }
+    #share { border: 0; border-radius: 8px; padding: 9px 11px; background: #e5e7eb; color: #111; font-size: 14px; }
+    #toast { position: absolute; z-index: 1002; left: 50%; bottom: 92px; transform: translateX(-50%);
+      background: #111827; color: #fff; padding: 10px 16px; border-radius: 20px; font-size: 13px;
+      opacity: 0; transition: opacity .2s; pointer-events: none; white-space: nowrap; max-width: 90vw; box-shadow: 0 4px 14px rgba(0,0,0,.3); }
+    #toast.on { opacity: .96; }
   </style>
 </head>
 <body>
@@ -87,8 +92,10 @@
     <span id="title">축제지도</span>
     <span class="sp"></span>
     <button id="poiToggle" style="display:none">🔍 찾기</button>
+    <button id="share" title="내 위치 링크 공유">📤</button>
     <button id="go">내 위치</button>
   </div>
+  <div id="toast"></div>
   <div id="poibar">
     <div id="search"><span>🔍</span><input id="q" type="text" placeholder="화장실, 정원 이름, C25…" autocomplete="off" /></div>
     <div id="results"></div>
@@ -134,7 +141,8 @@
     let W = 0, H = 0, hom = null, northAngle = 0;
     let meMarker = null, accCircle = null, coneEl = null, heading = 0;
     let located = false, follow = false;
-    let lastLatLng = null;                 // 마지막 내 위치(목표 거리 계산용)
+    let lastLatLng = null;                 // 마지막 내 위치(지도 픽셀 좌표, 목표 거리용)
+    let lastGPS = null;                    // 마지막 내 위치(실제 GPS lat/lng, 공유용)
     let dest = null, destLine = null, destMarker = null;  // 목표 지점
     let PPM0 = 1;                          // 행사 중심의 픽셀/미터(거리 폴백)
 
@@ -196,6 +204,7 @@
       const [px, py] = toPixel(lat, lng);
       const ll = pxToLatLng(px, py);
       lastLatLng = ll;
+      lastGPS = { lat: lat, lng: lng };
       const outside = px < 0 || px > W || py < 0 || py > H;
       const ppm = pxPerMeter(lat, lng);
       updateDest(ppm);
@@ -270,7 +279,9 @@
       PPM0 = pxPerMeter(refLat, refLng);
       setStatus('"내 위치"를 눌러 현재 위치를 약도 위에 표시하세요. (위치·나침반 권한 허용 필요)');
       Festmap.track('open', { event: SLUG });
-      setupPois();   // 핀/검색/길찾기 (pois.json 있으면)
+      pinLayer.addTo(map);   // 핀 레이어는 항상(공유 위치는 pois 없어도 표시)
+      setupPois();           // 핀/검색/길찾기 (pois.json 있으면)
+      showShared();          // 공유받은 위치(?at=) 있으면 표시
     })();
 
     // ───────────────── POI: 시설 찾기 + 길찾기 ─────────────────
@@ -286,7 +297,8 @@
       wheelchair:{ label: '휠체어',  emoji: '♿', color: '#db2777' },
       bus:       { label: '버스',    emoji: '🚌', color: '#7c3aed' },
       subway:    { label: '지하철',  emoji: '🚇', color: '#7c3aed' },
-      garden:    { label: '정원',    emoji: '🌳', color: '#15803d' }
+      garden:    { label: '정원',    emoji: '🌳', color: '#15803d' },
+      shared:    { label: '공유 위치', emoji: '📍', color: '#e11d48' }
     };
     // 칩에 노출할 순서(데이터에 있는 것만)
     const CHIP_ORDER = ['toilet', 'store', 'cafe', 'foodtruck', 'parking', 'info', 'nursing', 'bus', 'garden'];
@@ -415,6 +427,50 @@
     document.getElementById('poiToggle').onclick = () => {
       document.getElementById('poibar').classList.toggle('on');
     };
+
+    // ───────────── 내 위치 공유 (라이트: 좌표를 링크에 담음, 서버 불필요) ─────────────
+    function toast(msg) {
+      const el = document.getElementById('toast');
+      el.textContent = msg; el.classList.add('on');
+      clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('on'), 2800);
+    }
+    function shareMyLocation() {
+      if (!lastGPS) { setStatus('먼저 "내 위치"를 눌러 위치를 잡은 뒤 공유하세요.'); return; }
+      const url = location.origin + location.pathname
+        + '?event=' + encodeURIComponent(SLUG)
+        + '&at=' + lastGPS.lat.toFixed(6) + ',' + lastGPS.lng.toFixed(6)
+        + '&t=' + Date.now();
+      const text = '내 위치 — ' + (document.getElementById('title').textContent || '축제지도');
+      Festmap.track('share_loc', { event: SLUG });
+      if (navigator.share) {
+        navigator.share({ title: '내 위치', text, url }).catch(() => {});
+      } else if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(url).then(() => toast('📋 위치 링크 복사됨 — 친구에게 붙여넣어 보내세요')).catch(() => prompt('이 링크를 복사해 보내세요', url));
+      } else {
+        prompt('이 링크를 복사해 보내세요', url);
+      }
+    }
+    document.getElementById('share').onclick = shareMyLocation;
+
+    // 공유받은 위치 표시 (?at=lat,lng[&t=epoch])
+    function showShared() {
+      const sp = new URLSearchParams(location.search);
+      const at = sp.get('at');
+      if (!at) return;
+      const [la, ln] = at.split(',').map(Number);
+      if (!isFinite(la) || !isFinite(ln)) return;
+      const [px, py] = toPixel(la, ln);
+      if (px < 0 || px > W || py < 0 || py > H) { setStatus('공유받은 위치가 이 약도 범위 밖이에요.', true); return; }
+      dest = { x: Math.round(px), y: Math.round(py), cat: 'shared', name: '공유받은 위치' };
+      const t = +sp.get('t');
+      const ago = t ? ' · ' + Math.max(0, Math.round((Date.now() - t) / 60000)) + '분 전' : '';
+      renderPins();
+      map.setView(poiLatLng(dest), 1);
+      document.getElementById('navName').textContent = '공유받은 위치' + ago;
+      document.getElementById('navbar').classList.add('on');
+      updateDest(PPM0);
+      setStatus('📍 친구가 공유한 위치예요. "내 위치"를 누르면 여기까지 거리·방향이 표시돼요.');
+    }
 
     function onOrient(e) {
       let h = (e.webkitCompassHeading != null) ? e.webkitCompassHeading
