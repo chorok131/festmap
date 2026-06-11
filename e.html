@@ -33,9 +33,9 @@
       background: rgba(255,255,255,.95); padding: 8px 12px; border-radius: 10px; font-size: 12px; color: #555;
       box-shadow: 0 2px 10px rgba(0,0,0,.12); }
     #status.warn { background: #fff7ed; color: #9a3412; }
-    #follow { position: absolute; z-index: 1000; right: 14px; bottom: 56px; display: none;
-      align-items: center; gap: 6px; border: 0; border-radius: 22px; padding: 9px 14px;
-      background: #fff; color: #374151; font-size: 13px; font-weight: 600; box-shadow: 0 2px 10px rgba(0,0,0,.22); }
+    #follow { position: absolute; z-index: 1000; right: 14px; bottom: 56px; display: inline-flex;
+      align-items: center; gap: 6px; border: 0; border-radius: 22px; padding: 11px 16px;
+      background: #fff; color: #374151; font-size: 14px; font-weight: 700; box-shadow: 0 2px 10px rgba(0,0,0,.22); }
     #follow.on { background: #2563eb; color: #fff; }
     #follow .ic { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
     .me { position: relative; width: 0; height: 0; }
@@ -93,8 +93,7 @@
     <span id="title">축제지도</span>
     <span class="sp"></span>
     <button id="poiToggle" style="display:none">🔍 찾기</button>
-    <button id="share" title="내 위치 링크 공유">📤</button>
-    <button id="go">내 위치</button>
+    <button id="go">📤 위치 공유</button>
   </div>
   <div id="toast"></div>
   <div id="poibar">
@@ -103,7 +102,7 @@
     <div id="chips"></div>
   </div>
   <div id="map"></div>
-  <button id="follow"><span class="ic"></span><span id="followTxt">따라가기</span></button>
+  <button id="follow"><span class="ic"></span><span id="followTxt">내 위치</span></button>
   <div id="navbar">
     <span>🎯 <b id="navName">목표</b></span>
     <span class="sp"></span>
@@ -236,17 +235,45 @@
       }
     }
 
+    let watching = false;
     const followBtn = document.getElementById('follow');
     function updateFollowBtn() {
-      followBtn.style.display = located ? 'inline-flex' : 'none';
-      followBtn.classList.toggle('on', follow);
-      document.getElementById('followTxt').textContent = follow ? '따라가는 중' : '따라가기';
+      const on = located && follow;
+      followBtn.classList.toggle('on', on);
+      document.getElementById('followTxt').textContent =
+        !located ? (watching ? '찾는 중…' : '내 위치') : (follow ? '따라가는 중' : '내 위치');
     }
+    // "내 위치" 버튼: 첫 탭=권한+따라가기, 이후 탭=따라가기 켜고/끄기(그 자리서 둘러보기)
     followBtn.addEventListener('click', () => {
+      if (!located) { startLocating(); return; }
       follow = !follow; updateFollowBtn();
       if (follow && meMarker) map.panTo(meMarker.getLatLng(), { animate: true });
     });
     map.on('dragstart', () => { if (follow) { follow = false; updateFollowBtn(); } });
+
+    // 위치 추적 시작(권한 동의 포함). 중복 호출 방지.
+    async function startLocating() {
+      if (watching) return;
+      setStatus('권한 요청 중…');
+      Festmap.track('locate_tap', { event: SLUG });
+      try {
+        if (window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === 'function') {
+          const s = await DeviceOrientationEvent.requestPermission();
+          if (s === 'granted') window.addEventListener('deviceorientation', onOrient, true);
+        } else {
+          window.addEventListener('deviceorientationabsolute', onOrient, true);
+          window.addEventListener('deviceorientation', onOrient, true);
+        }
+      } catch (e) {}
+      if (!navigator.geolocation) { setStatus('이 브라우저는 위치를 지원하지 않습니다.', true); return; }
+      setStatus('내 위치 찾는 중…');
+      watching = true; follow = true; updateFollowBtn();
+      navigator.geolocation.watchPosition(
+        (p) => showMe(p.coords.latitude, p.coords.longitude, p.coords.accuracy),
+        (err) => setStatus('위치 오류: ' + err.message + ' (https에서만 동작)', true),
+        { enableHighAccuracy: true, maximumAge: 1000, timeout: 15000 }
+      );
+    }
 
     (async function init() {
       setStatus('지도 불러오는 중…');
@@ -312,9 +339,9 @@
     const poiLatLng = (p) => L.latLng(H - p.y, p.x);
 
     function pinIcon(cat, target) {
-      const c = CAT[cat] || { emoji: '📍', color: '#2563eb' };
+      const c = CAT[cat] || { color: '#2563eb' };
       return L.divIcon({ className: '', iconSize: [0, 0],
-        html: `<div class="poi${target ? ' target' : ''}" style="--c:${c.color}"><span>${c.emoji}</span></div>` });
+        html: `<div class="poi${target ? ' target' : ''}" style="--c:${c.color}"></div>` });
     }
 
     async function setupPois() {
@@ -326,8 +353,7 @@
       document.getElementById('poiToggle').style.display = '';
       buildChips();
       bindSearch();
-      // 기본: 화장실 켜기(가장 많이 찾는 것)
-      if (POIS.some(p => p.cat === 'toilet')) { activeCats.add('toilet'); }
+      // 기본은 아무 카테고리도 켜지 않음(사용자가 칩을 눌러 표시)
       document.getElementById('poibar').classList.add('on');
       renderPins();
       syncChips();
@@ -489,8 +515,6 @@
         prompt('이 링크를 복사해 보내세요', url);
       }
     }
-    document.getElementById('share').onclick = shareMyLocation;
-
     // 공유받은 위치 표시 (?at=lat,lng[&t=epoch])
     function showShared() {
       const sp = new URLSearchParams(location.search);
@@ -516,26 +540,9 @@
             : (e.absolute && e.alpha != null) ? (360 - e.alpha) : null;
       if (h != null) { heading = h; applyCone(); }
     }
-    document.getElementById('go').addEventListener('click', async () => {
-      setStatus('권한 요청 중…');
-      Festmap.track('locate_tap', { event: SLUG });
-      try {
-        if (window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === 'function') {
-          const s = await DeviceOrientationEvent.requestPermission();
-          if (s === 'granted') window.addEventListener('deviceorientation', onOrient, true);
-        } else {
-          window.addEventListener('deviceorientationabsolute', onOrient, true);
-          window.addEventListener('deviceorientation', onOrient, true);
-        }
-      } catch (e) {}
-      if (!navigator.geolocation) { setStatus('이 브라우저는 위치를 지원하지 않습니다.', true); return; }
-      setStatus('내 위치 찾는 중…');
-      follow = true;
-      navigator.geolocation.watchPosition(
-        (p) => showMe(p.coords.latitude, p.coords.longitude, p.coords.accuracy),
-        (err) => setStatus('위치 오류: ' + err.message + ' (https에서만 동작)', true),
-        { enableHighAccuracy: true, maximumAge: 1000, timeout: 15000 }
-      );
+    // 상단 버튼 = 내 위치 공유
+    document.getElementById('go').addEventListener('click', () => {
+      shareMyLocation();
     });
 
     if ('serviceWorker' in navigator) {
