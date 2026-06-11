@@ -26,8 +26,24 @@
       box-shadow: 0 2px 10px rgba(0,0,0,.15);
     }
     #home { text-decoration: none; color: #2563eb; font-weight: 700; font-size: 18px; line-height: 1; }
-    #title { font-weight: 700; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #title { border: 0; background: transparent; font-weight: 700; font-size: 15px; color: #111;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 46vw; text-align: left; padding: 2px 0; }
     #bar .sp { flex: 1; }
+    #eventMenu { position: absolute; z-index: 1001; top: 52px; left: 10px; display: none;
+      background: #fff; border-radius: 12px; box-shadow: 0 6px 20px rgba(0,0,0,.22); overflow: hidden; min-width: 220px; max-width: 80vw; }
+    #eventMenu.on { display: block; }
+    #eventMenu .row { display: block; padding: 12px 14px; font-size: 14px; color: #111; text-decoration: none; border-bottom: 1px solid #f1f1f1; }
+    #eventMenu .row:last-child { border-bottom: 0; }
+    #eventMenu .row.cur { background: #eff6ff; font-weight: 700; }
+    #eventMenu .row .sub { display: block; color: #9ca3af; font-size: 12px; margin-top: 2px; }
+    #eventMenu .row.add { color: #2563eb; font-weight: 600; }
+    #editbar { position: absolute; z-index: 1001; top: 56px; left: 10px; right: 10px; display: none;
+      align-items: center; gap: 8px; background: #fef3c7; border: 1px solid #f59e0b; border-radius: 10px;
+      padding: 8px 10px; font-size: 13px; box-shadow: 0 2px 8px rgba(0,0,0,.15); }
+    #editbar.on { display: flex; }
+    #editbar select { border: 1px solid #d1d5db; border-radius: 6px; padding: 5px; font-size: 13px; max-width: 38vw; }
+    #editbar .hint { color: #92400e; flex: 1; }
+    #editExport { border: 0; border-radius: 8px; padding: 7px 12px; background: #f59e0b; color: #fff; font-weight: 700; font-size: 13px; white-space: nowrap; }
     #go { border: 0; border-radius: 8px; padding: 9px 14px; background: #2563eb; color: #fff; font-size: 14px; font-weight: 600; }
     #status { position: absolute; z-index: 1000; left: 10px; right: 10px; bottom: 10px;
       background: rgba(255,255,255,.95); padding: 8px 12px; border-radius: 10px; font-size: 12px; color: #555;
@@ -90,10 +106,17 @@
 <body>
   <div id="bar">
     <a id="home" href="index.html" title="행사 목록">‹</a>
-    <span id="title">축제지도</span>
+    <button id="title">축제지도 ▾</button>
     <span class="sp"></span>
     <button id="poiToggle" style="display:none">🔍 찾기</button>
     <button id="go">📤 위치 공유</button>
+  </div>
+  <div id="eventMenu"></div>
+  <div id="editbar">
+    <span>✏️</span>
+    <select id="editCat"></select>
+    <span class="hint">빈 곳 탭 → 추가</span>
+    <button id="editExport">💾 내보내기</button>
   </div>
   <div id="toast"></div>
   <div id="poibar">
@@ -129,10 +152,32 @@
     const SLUG = new URLSearchParams(location.search).get('event');
     if (!SLUG) { location.replace('index.html'); }
     const BASE = `events/${SLUG}/`;
+    const EDIT = new URLSearchParams(location.search).get('edit') === '1';   // ?edit=1 → 사이트 추가 편집 모드
+    let editCat = 'garden';
 
     const map = L.map('map', { crs: L.CRS.Simple, minZoom: -6, maxZoom: 4, zoomControl: true, attributionControl: false, fadeAnimation: true });
     const statusEl = document.getElementById('status');
     const setStatus = (t, warn) => { statusEl.textContent = t; statusEl.classList.toggle('warn', !!warn); };
+
+    // ── 행사 전환: 제목 ▾ 누르면 다른 행사 선택 ──
+    const eventMenu = document.getElementById('eventMenu');
+    let eventsLoaded = false;
+    async function buildEventMenu() {
+      if (eventsLoaded) return; eventsLoaded = true;
+      let evs = [];
+      try { evs = (await (await fetch('events/events.json')).json()).events || []; } catch (e) {}
+      const STBADGE = { upcoming: '다가오는 행사', live: '진행 중', past: '지난 행사' };
+      eventMenu.innerHTML = evs.map(ev =>
+        `<a class="row${ev.slug === SLUG ? ' cur' : ''}" href="e.html?event=${encodeURIComponent(ev.slug)}">
+           ${ev.name}<span class="sub">${[ev.venue, STBADGE[ev.status] || ''].filter(Boolean).join(' · ')}</span></a>`
+      ).join('') + `<a class="row add" href="index.html">＋ 행사 목록 / 새 행사</a>`;
+    }
+    document.getElementById('title').addEventListener('click', async (e) => {
+      e.stopPropagation();
+      await buildEventMenu();
+      eventMenu.classList.toggle('on');
+    });
+    document.addEventListener('click', () => eventMenu.classList.remove('on'));
 
     const R = 6378137.0, rad = Math.PI / 180;
     const mx = (lng) => R * lng * rad;
@@ -286,7 +331,7 @@
         return;
       }
       document.title = (g.event || '축제지도') + ' · 현위치 지도';
-      document.getElementById('title').textContent = g.event || '축제지도';
+      document.getElementById('title').textContent = (g.event || '축제지도') + ' ▾';
       Festmap.setConfig({ mode: g.track || 'counts' });   // 행사별: 'counts'(기본) | 'full'(동선) | 'off'
       const imgUrl = BASE + g.image;
       const loaded = await new Promise((res) => {
@@ -312,7 +357,8 @@
       Festmap.track('open', { event: SLUG });
       pinLayer.addTo(map); favLayer.addTo(map);   // 레이어는 항상(즐겨찾기·공유는 pois 없어도 동작)
       loadFavs(); renderFavs();                   // 저장된 즐겨찾기 복원
-      setupPois();                                // 핀/검색 (pois.json 있으면)
+      await setupPois();                          // 핀/검색 (pois.json 있으면)
+      setupEdit();                                // 편집 모드(?edit=1)면 사이트 추가 도구
       showShared();                               // 공유받은 위치(?at=) 있으면 표시
     })();
 
@@ -396,13 +442,55 @@
 
     function openPoi(p) {
       const c = CAT[p.cat] || {};
-      const faved = isFav(p.x, p.y);
+      const bstyle = 'border:0;border-radius:8px;padding:8px 12px;font-weight:600;font-size:13px;width:100%';
+      let btns;
+      if (EDIT) {
+        btns = `<button onclick="window._editPoi(${p.x},${p.y})" style="${bstyle};background:#2563eb;color:#fff;margin-bottom:6px">✏️ 이름 수정</button>
+                <button onclick="window._delPoi(${p.x},${p.y})" style="${bstyle};background:#e5e7eb;color:#111">🗑 삭제</button>`;
+      } else {
+        const faved = isFav(p.x, p.y);
+        btns = `<button onclick="window._toggleFav(${p.x},${p.y})" style="${bstyle};background:${faved ? '#e5e7eb' : '#f59e0b'};color:${faved ? '#111' : '#fff'}">${faved ? '⭐ 즐겨찾기 해제' : '⭐ 즐겨찾기에 추가'}</button>`;
+      }
       const html = `<div style="min-width:150px">
         <div style="font-weight:700;font-size:14px;margin-bottom:6px">${c.emoji || '📍'} ${p.name || c.label || ''}${p.id ? ' <span style="color:#9ca3af">(' + p.id + ')</span>' : ''}</div>
-        ${distLine(p.x, p.y)}
-        <button onclick="window._toggleFav(${p.x},${p.y})" style="border:0;border-radius:8px;padding:8px 12px;background:${faved ? '#e5e7eb' : '#f59e0b'};color:${faved ? '#111' : '#fff'};font-weight:600;font-size:13px;width:100%">${faved ? '⭐ 즐겨찾기 해제' : '⭐ 즐겨찾기에 추가'}</button>
+        ${distLine(p.x, p.y)}${btns}
       </div>`;
       L.popup({ closeButton: true, autoPan: true }).setLatLng(poiLatLng(p)).setContent(html).openOn(map);
+    }
+    window._editPoi = function (x, y) {
+      const p = POIS.find(pp => pp.x === x && pp.y === y); if (!p) return;
+      const n = prompt('장소 이름', p.name || ''); if (n == null) return;
+      p.name = n; renderPins(); map.closePopup(); toast('수정됨 — 다 되면 💾 내보내기');
+    };
+    window._delPoi = function (x, y) {
+      POIS = POIS.filter(p => !(p.x === x && p.y === y));
+      renderPins(); map.closePopup(); toast('삭제됨 — 다 되면 💾 내보내기');
+    };
+
+    // 편집 모드: 지도 탭으로 사이트(POI) 추가 → pois.json 내보내기
+    function setupEdit() {
+      if (!EDIT) return;
+      const sel = document.getElementById('editCat');
+      sel.innerHTML = Object.keys(CAT).filter(k => k !== 'shared').map(k => `<option value="${k}">${CAT[k].emoji} ${CAT[k].label}</option>`).join('');
+      sel.value = editCat; sel.onchange = () => editCat = sel.value;
+      document.getElementById('editbar').classList.add('on');
+      new Set(POIS.map(p => p.cat)).forEach(c => activeCats.add(c));   // 편집 땐 전부 표시
+      renderPins(); syncChips();
+      map.on('click', (e) => {
+        const x = Math.round(e.latlng.lng), y = Math.round(H - e.latlng.lat);
+        if (x < 0 || x > W || y < 0 || y > H) return;
+        const name = prompt('추가할 ' + (CAT[editCat] || {}).label + ' 이름', '');
+        if (!name) return;
+        POIS.push({ cat: editCat, name: name, x: x, y: y });
+        renderPins();
+        toast('추가됨: ' + name);
+      });
+      document.getElementById('editExport').onclick = () => {
+        const blob = new Blob([JSON.stringify({ pois: POIS }, null, 0)], { type: 'application/json' });
+        const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+        a.download = 'pois.json'; a.click();
+        toast('내보냄 — events/' + SLUG + '/pois.json 에 덮어쓰고 커밋하세요');
+      };
     }
 
     // ── 즐겨찾기 (localStorage에 저장, 여러 개) ──
@@ -440,6 +528,7 @@
     };
     // 빈 곳 꾹 누르기(모바일 long-press) / 우클릭(PC) → 그 자리에 즐겨찾기 추가
     map.on('contextmenu', (e) => {
+      if (EDIT) return;   // 편집 모드에선 탭으로 POI 추가(즐겨찾기 비활성)
       const x = Math.round(e.latlng.lng), y = Math.round(H - e.latlng.lat);
       if (x < 0 || x > W || y < 0 || y > H) return;
       const name = prompt('이 자리를 즐겨찾기에 저장할 이름 (예: 돗자리 깐 곳)', '내 표시');
