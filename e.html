@@ -43,6 +43,42 @@
       transform-origin: center center; will-change: transform; }
     .me .dot { position: absolute; left: -9px; top: -9px; width: 18px; height: 18px; border-radius: 50%;
       background: #1d4ed8; border: 3px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.2), 0 1px 4px rgba(0,0,0,.4); }
+
+    /* POI: 검색 + 카테고리 칩 바 */
+    #poibar { position: absolute; z-index: 1000; top: 56px; left: 10px; right: 10px; display: none; flex-direction: column; gap: 6px; }
+    #poibar.on { display: flex; }
+    #search { display: flex; align-items: center; gap: 6px; background: rgba(255,255,255,.96);
+      border-radius: 10px; padding: 6px 10px; box-shadow: 0 2px 8px rgba(0,0,0,.15); }
+    #search input { border: 0; outline: 0; flex: 1; font-size: 14px; background: transparent; }
+    #chips { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; -webkit-overflow-scrolling: touch; }
+    #chips::-webkit-scrollbar { display: none; }
+    .chip { flex: 0 0 auto; border: 0; border-radius: 18px; padding: 7px 12px; font-size: 13px; font-weight: 600;
+      background: rgba(255,255,255,.96); color: #374151; box-shadow: 0 2px 8px rgba(0,0,0,.15); white-space: nowrap; }
+    .chip.on { background: #2563eb; color: #fff; }
+    /* 검색 결과 드롭다운 */
+    #results { background: rgba(255,255,255,.98); border-radius: 10px; box-shadow: 0 4px 14px rgba(0,0,0,.2);
+      max-height: 46vh; overflow-y: auto; display: none; }
+    #results.on { display: block; }
+    #results .row { padding: 10px 12px; font-size: 14px; border-bottom: 1px solid #f0f0f0; display: flex; gap: 8px; align-items: center; }
+    #results .row:last-child { border-bottom: 0; }
+    #results .row .ic { font-size: 16px; }
+    #results .row .sub { color: #9ca3af; font-size: 12px; }
+    /* POI 핀 */
+    .poi { width: 26px; height: 26px; margin-left: -13px; margin-top: -26px; border-radius: 50% 50% 50% 0;
+      background: var(--c, #2563eb); transform: rotate(-45deg); box-shadow: 0 1px 4px rgba(0,0,0,.4);
+      display: flex; align-items: center; justify-content: center; border: 2px solid #fff; }
+    .poi span { transform: rotate(45deg); font-size: 12px; line-height: 1; }
+    .poi.target { width: 32px; height: 32px; margin-left: -16px; margin-top: -32px; z-index: 5; }
+    /* 목표 안내 바 */
+    #navbar { position: absolute; z-index: 1001; left: 10px; right: 10px; bottom: 44px; display: none;
+      align-items: center; gap: 10px; background: #111827; color: #fff; border-radius: 12px; padding: 10px 14px;
+      box-shadow: 0 4px 14px rgba(0,0,0,.3); font-size: 13px; }
+    #navbar.on { display: flex; }
+    #navbar b { font-size: 15px; }
+    #navbar .sp { flex: 1; }
+    #navbar .dist { font-weight: 700; color: #93c5fd; }
+    #navClose { border: 0; background: rgba(255,255,255,.15); color: #fff; border-radius: 8px; padding: 6px 10px; font-size: 13px; }
+    #poiToggle { border: 0; border-radius: 8px; padding: 9px 12px; background: #e5e7eb; color: #111; font-size: 14px; font-weight: 600; }
   </style>
 </head>
 <body>
@@ -50,10 +86,22 @@
     <a id="home" href="index.html" title="행사 목록">‹</a>
     <span id="title">축제지도</span>
     <span class="sp"></span>
+    <button id="poiToggle" style="display:none">🔍 찾기</button>
     <button id="go">내 위치</button>
+  </div>
+  <div id="poibar">
+    <div id="search"><span>🔍</span><input id="q" type="text" placeholder="화장실, 정원 이름, C25…" autocomplete="off" /></div>
+    <div id="results"></div>
+    <div id="chips"></div>
   </div>
   <div id="map"></div>
   <button id="follow"><span class="ic"></span><span id="followTxt">따라가기</span></button>
+  <div id="navbar">
+    <span>🎯 <b id="navName">목표</b></span>
+    <span class="sp"></span>
+    <span class="dist" id="navDist"></span>
+    <button id="navClose">해제</button>
+  </div>
   <div id="status">지도 불러오는 중…</div>
 
   <script>
@@ -86,6 +134,9 @@
     let W = 0, H = 0, hom = null, northAngle = 0;
     let meMarker = null, accCircle = null, coneEl = null, heading = 0;
     let located = false, follow = false;
+    let lastLatLng = null;                 // 마지막 내 위치(목표 거리 계산용)
+    let dest = null, destLine = null, destMarker = null;  // 목표 지점
+    let PPM0 = 1;                          // 행사 중심의 픽셀/미터(거리 폴백)
 
     function solveLinear(A, b) {
       const n = b.length, M = A.map((r, i) => r.concat([b[i]]));
@@ -144,8 +195,10 @@
     function showMe(lat, lng, acc) {
       const [px, py] = toPixel(lat, lng);
       const ll = pxToLatLng(px, py);
+      lastLatLng = ll;
       const outside = px < 0 || px > W || py < 0 || py > H;
       const ppm = pxPerMeter(lat, lng);
+      updateDest(ppm);
 
       const accPx = (acc || 0) * ppm;
       if (!accCircle) accCircle = L.circle(ll, { radius: accPx, color: '#1d4ed8', weight: 1, opacity: .4, fillColor: '#3b82f6', fillOpacity: .12, interactive: false }).addTo(map);
@@ -214,9 +267,154 @@
       const refLng = (g.corners.topLeft.lng + g.corners.bottomRight.lng) / 2;
       const p0 = toPixel(refLat, refLng), p1 = toPixel(refLat + 0.001, refLng);
       northAngle = Math.atan2(p1[1] - p0[1], p1[0] - p0[0]);
+      PPM0 = pxPerMeter(refLat, refLng);
       setStatus('"내 위치"를 눌러 현재 위치를 약도 위에 표시하세요. (위치·나침반 권한 허용 필요)');
       Festmap.track('open', { event: SLUG });
+      setupPois();   // 핀/검색/길찾기 (pois.json 있으면)
     })();
+
+    // ───────────────── POI: 시설 찾기 + 길찾기 ─────────────────
+    const CAT = {
+      toilet:    { label: '화장실',  emoji: '🚻', color: '#2563eb' },
+      store:     { label: '편의점',  emoji: '🏪', color: '#16a34a' },
+      cafe:      { label: '카페',    emoji: '☕', color: '#a16207' },
+      foodtruck: { label: '푸드트럭', emoji: '🍔', color: '#ea580c' },
+      parking:   { label: '주차장',  emoji: '🅿️', color: '#475569' },
+      info:      { label: '안내소',  emoji: 'ℹ️', color: '#0891b2' },
+      nursing:   { label: '수유실',  emoji: '🍼', color: '#db2777' },
+      stroller:  { label: '유모차',  emoji: '🍼', color: '#db2777' },
+      wheelchair:{ label: '휠체어',  emoji: '♿', color: '#db2777' },
+      bus:       { label: '버스',    emoji: '🚌', color: '#7c3aed' },
+      subway:    { label: '지하철',  emoji: '🚇', color: '#7c3aed' },
+      garden:    { label: '정원',    emoji: '🌳', color: '#15803d' }
+    };
+    // 칩에 노출할 순서(데이터에 있는 것만)
+    const CHIP_ORDER = ['toilet', 'store', 'cafe', 'foodtruck', 'parking', 'info', 'nursing', 'bus', 'garden'];
+
+    let POIS = [], pinLayer = L.layerGroup(), activeCats = new Set();
+    const poiLatLng = (p) => L.latLng(H - p.y, p.x);
+
+    function pinIcon(cat, target) {
+      const c = CAT[cat] || { emoji: '📍', color: '#2563eb' };
+      return L.divIcon({ className: '', iconSize: [0, 0],
+        html: `<div class="poi${target ? ' target' : ''}" style="--c:${c.color}"><span>${c.emoji}</span></div>` });
+    }
+
+    async function setupPois() {
+      let data;
+      try { data = await (await fetch(BASE + 'pois.json')).json(); } catch (e) { return; } // 없으면 조용히 패스
+      POIS = (data.pois || []).filter(p => p && p.x != null && p.y != null);
+      if (!POIS.length) return;
+      pinLayer.addTo(map);
+      document.getElementById('poiToggle').style.display = '';
+      buildChips();
+      bindSearch();
+      // 기본: 화장실 켜기(가장 많이 찾는 것)
+      if (POIS.some(p => p.cat === 'toilet')) { activeCats.add('toilet'); }
+      document.getElementById('poibar').classList.add('on');
+      renderPins();
+      syncChips();
+    }
+
+    function buildChips() {
+      const have = new Set(POIS.map(p => p.cat));
+      const box = document.getElementById('chips');
+      box.innerHTML = '';
+      CHIP_ORDER.filter(c => have.has(c)).forEach(cat => {
+        const n = POIS.filter(p => p.cat === cat).length;
+        const b = document.createElement('button');
+        b.className = 'chip'; b.dataset.cat = cat;
+        b.textContent = `${(CAT[cat] || {}).emoji || ''} ${(CAT[cat] || {}).label || cat} ${n}`;
+        b.onclick = () => { activeCats.has(cat) ? activeCats.delete(cat) : activeCats.add(cat); renderPins(); syncChips(); };
+        box.appendChild(b);
+      });
+    }
+    function syncChips() {
+      document.querySelectorAll('.chip').forEach(b => b.classList.toggle('on', activeCats.has(b.dataset.cat)));
+    }
+
+    function renderPins() {
+      pinLayer.clearLayers();
+      POIS.filter(p => activeCats.has(p.cat)).forEach(p => addPin(p));
+      if (dest) addPin(dest, true);   // 목표는 항상 표시
+    }
+    function addPin(p, target) {
+      const m = L.marker(poiLatLng(p), { icon: pinIcon(p.cat, target), zIndexOffset: target ? 900 : 400 }).addTo(pinLayer);
+      m.on('click', () => openPoi(p));
+    }
+
+    function openPoi(p) {
+      const c = CAT[p.cat] || {};
+      const html = `<div style="min-width:140px">
+        <div style="font-weight:700;font-size:14px;margin-bottom:6px">${c.emoji || '📍'} ${p.name || c.label || ''}${p.id ? ' <span style="color:#9ca3af">(' + p.id + ')</span>' : ''}</div>
+        <button onclick="window._setDest(${p.x},${p.y})" style="border:0;border-radius:8px;padding:8px 12px;background:#2563eb;color:#fff;font-weight:600;font-size:13px;width:100%">여기로 가기 ▸</button>
+      </div>`;
+      L.popup({ closeButton: true, autoPan: true }).setLatLng(poiLatLng(p)).setContent(html).openOn(map);
+    }
+
+    // 검색
+    function bindSearch() {
+      const q = document.getElementById('q'), res = document.getElementById('results');
+      q.addEventListener('input', () => {
+        const v = q.value.trim().toLowerCase();
+        if (!v) { res.classList.remove('on'); res.innerHTML = ''; return; }
+        const hits = POIS.filter(p =>
+          (p.name || '').toLowerCase().includes(v) ||
+          (p.id || '').toLowerCase().includes(v) ||
+          ((CAT[p.cat] || {}).label || '').includes(v)
+        ).slice(0, 20);
+        res.innerHTML = hits.map(p => {
+          const c = CAT[p.cat] || {};
+          return `<div class="row" data-x="${p.x}" data-y="${p.y}">
+            <span class="ic">${c.emoji || '📍'}</span>
+            <span>${p.name || c.label || ''}${p.id ? ' <span class="sub">' + p.id + '</span>' : ''}</span></div>`;
+        }).join('') || '<div class="row"><span class="sub">검색 결과가 없어요</span></div>';
+        res.classList.add('on');
+        res.querySelectorAll('.row[data-x]').forEach(row => {
+          row.onclick = () => {
+            const x = +row.dataset.x, y = +row.dataset.y;
+            const p = POIS.find(pp => pp.x === x && pp.y === y);
+            res.classList.remove('on'); q.value = '';
+            map.setView(poiLatLng(p), 2, { animate: true });
+            openPoi(p);
+          };
+        });
+      });
+    }
+
+    // 목표 지점
+    window._setDest = function (x, y) {
+      dest = POIS.find(p => p.x === x && p.y === y) || { x, y, cat: 'garden', name: '목표' };
+      map.closePopup();
+      if (destMarker) pinLayer.removeLayer(destMarker);
+      renderPins();
+      document.getElementById('navName').textContent = dest.name || '목표';
+      document.getElementById('navbar').classList.add('on');
+      updateDest(PPM0);
+      if (!located) setStatus('"내 위치"를 누르면 목표까지 거리와 방향이 표시돼요.');
+    };
+    document.getElementById('navClose').onclick = () => {
+      dest = null; document.getElementById('navbar').classList.remove('on');
+      if (destLine) { map.removeLayer(destLine); destLine = null; }
+      renderPins();
+    };
+    function updateDest(ppm) {
+      if (!dest) return;
+      const dll = poiLatLng(dest);
+      if (lastLatLng) {
+        if (!destLine) destLine = L.polyline([lastLatLng, dll], { color: '#111827', weight: 3, dashArray: '6 6', opacity: .8 }).addTo(map);
+        else destLine.setLatLngs([lastLatLng, dll]);
+        const dx = dll.lng - lastLatLng[1], dy = dll.lat - lastLatLng[0];  // lastLatLng=[lat,lng] 배열
+        const m = Math.round(Math.hypot(dx, dy) / Math.max(ppm || PPM0 || 1, 1e-6));
+        document.getElementById('navDist').textContent = '약 ' + m + 'm';
+      } else {
+        document.getElementById('navDist').textContent = '내 위치 필요';
+      }
+    }
+
+    document.getElementById('poiToggle').onclick = () => {
+      document.getElementById('poibar').classList.toggle('on');
+    };
 
     function onOrient(e) {
       let h = (e.webkitCompassHeading != null) ? e.webkitCompassHeading
