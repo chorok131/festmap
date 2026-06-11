@@ -69,6 +69,7 @@
       display: flex; align-items: center; justify-content: center; border: 2px solid #fff; }
     .poi span { transform: rotate(45deg); font-size: 12px; line-height: 1; }
     .poi.target { width: 32px; height: 32px; margin-left: -16px; margin-top: -32px; z-index: 5; }
+    .poi.fav { background: #f59e0b; }
     /* 목표 안내 바 */
     #navbar { position: absolute; z-index: 1001; left: 10px; right: 10px; bottom: 44px; display: none;
       align-items: center; gap: 10px; background: #111827; color: #fff; border-radius: 12px; padding: 10px 14px;
@@ -141,10 +142,12 @@
     let W = 0, H = 0, hom = null, northAngle = 0;
     let meMarker = null, accCircle = null, coneEl = null, heading = 0;
     let located = false, follow = false;
-    let lastLatLng = null;                 // 마지막 내 위치(지도 픽셀 좌표, 목표 거리용)
+    let lastLatLng = null;                 // 마지막 내 위치(지도 픽셀 좌표)
     let lastGPS = null;                    // 마지막 내 위치(실제 GPS lat/lng, 공유용)
-    let dest = null, destLine = null, destMarker = null;  // 목표 지점
-    let PPM0 = 1;                          // 행사 중심의 픽셀/미터(거리 폴백)
+    let lastImg = null;                    // 마지막 내 위치(이미지 픽셀, 거리 계산용)
+    let favorites = [], favLayer = L.layerGroup();  // 즐겨찾기(localStorage 저장)
+    let sharedXY = null, sharedMarker = null;       // 공유받은 위치(?at=)
+    let PPM0 = 1;                          // 행사 중심의 픽셀/미터(거리 환산)
 
     function solveLinear(A, b) {
       const n = b.length, M = A.map((r, i) => r.concat([b[i]]));
@@ -205,9 +208,10 @@
       const ll = pxToLatLng(px, py);
       lastLatLng = ll;
       lastGPS = { lat: lat, lng: lng };
+      lastImg = { px: px, py: py };
       const outside = px < 0 || px > W || py < 0 || py > H;
       const ppm = pxPerMeter(lat, lng);
-      updateDest(ppm);
+      updateSharedDist();
 
       const accPx = (acc || 0) * ppm;
       if (!accCircle) accCircle = L.circle(ll, { radius: accPx, color: '#1d4ed8', weight: 1, opacity: .4, fillColor: '#3b82f6', fillOpacity: .12, interactive: false }).addTo(map);
@@ -279,9 +283,10 @@
       PPM0 = pxPerMeter(refLat, refLng);
       setStatus('"내 위치"를 눌러 현재 위치를 약도 위에 표시하세요. (위치·나침반 권한 허용 필요)');
       Festmap.track('open', { event: SLUG });
-      pinLayer.addTo(map);   // 핀 레이어는 항상(공유 위치는 pois 없어도 표시)
-      setupPois();           // 핀/검색/길찾기 (pois.json 있으면)
-      showShared();          // 공유받은 위치(?at=) 있으면 표시
+      pinLayer.addTo(map); favLayer.addTo(map);   // 레이어는 항상(즐겨찾기·공유는 pois 없어도 동작)
+      loadFavs(); renderFavs();                   // 저장된 즐겨찾기 복원
+      setupPois();                                // 핀/검색 (pois.json 있으면)
+      showShared();                               // 공유받은 위치(?at=) 있으면 표시
     })();
 
     // ───────────────── POI: 시설 찾기 + 길찾기 ─────────────────
@@ -348,21 +353,74 @@
     function renderPins() {
       pinLayer.clearLayers();
       POIS.filter(p => activeCats.has(p.cat)).forEach(p => addPin(p));
-      if (dest) addPin(dest, true);   // 목표는 항상 표시
     }
-    function addPin(p, target) {
-      const m = L.marker(poiLatLng(p), { icon: pinIcon(p.cat, target), zIndexOffset: target ? 900 : 400 }).addTo(pinLayer);
+    function addPin(p) {
+      const m = L.marker(poiLatLng(p), { icon: pinIcon(p.cat), zIndexOffset: 400 }).addTo(pinLayer);
       m.on('click', () => openPoi(p));
+    }
+
+    function distMeters(x, y) {
+      if (!lastImg) return null;
+      return Math.round(Math.hypot(x - lastImg.px, y - lastImg.py) / Math.max(PPM0, 1e-6));
+    }
+    function distLine(x, y) {
+      const m = distMeters(x, y);
+      return m == null ? '' : `<div style="font-size:12px;color:#2563eb;margin-bottom:6px">내 위치에서 약 ${m}m</div>`;
     }
 
     function openPoi(p) {
       const c = CAT[p.cat] || {};
-      const html = `<div style="min-width:140px">
+      const faved = isFav(p.x, p.y);
+      const html = `<div style="min-width:150px">
         <div style="font-weight:700;font-size:14px;margin-bottom:6px">${c.emoji || '📍'} ${p.name || c.label || ''}${p.id ? ' <span style="color:#9ca3af">(' + p.id + ')</span>' : ''}</div>
-        <button onclick="window._setDest(${p.x},${p.y})" style="border:0;border-radius:8px;padding:8px 12px;background:#2563eb;color:#fff;font-weight:600;font-size:13px;width:100%">여기로 가기 ▸</button>
+        ${distLine(p.x, p.y)}
+        <button onclick="window._toggleFav(${p.x},${p.y})" style="border:0;border-radius:8px;padding:8px 12px;background:${faved ? '#e5e7eb' : '#f59e0b'};color:${faved ? '#111' : '#fff'};font-weight:600;font-size:13px;width:100%">${faved ? '⭐ 즐겨찾기 해제' : '⭐ 즐겨찾기에 추가'}</button>
       </div>`;
       L.popup({ closeButton: true, autoPan: true }).setLatLng(poiLatLng(p)).setContent(html).openOn(map);
     }
+
+    // ── 즐겨찾기 (localStorage에 저장, 여러 개) ──
+    const FAV_KEY = 'festmap.fav.' + SLUG;
+    function loadFavs() { try { favorites = JSON.parse(localStorage.getItem(FAV_KEY) || '[]'); } catch (e) { favorites = []; } }
+    function saveFavs() { try { localStorage.setItem(FAV_KEY, JSON.stringify(favorites)); } catch (e) {} }
+    function isFav(x, y) { return favorites.some(f => f.x === x && f.y === y); }
+    function renderFavs() {
+      favLayer.clearLayers();
+      favorites.forEach(f => {
+        const m = L.marker(poiLatLng(f), { icon: L.divIcon({ className: '', iconSize: [0, 0], html: '<div class="poi fav"><span>⭐</span></div>' }), zIndexOffset: 600 }).addTo(favLayer);
+        m.on('click', () => openFav(f));
+      });
+    }
+    function openFav(f) {
+      const html = `<div style="min-width:150px">
+        <div style="font-weight:700;font-size:14px;margin-bottom:6px">⭐ ${f.name || '내 표시'}</div>
+        ${distLine(f.x, f.y)}
+        <button onclick="window._removeFav(${f.x},${f.y})" style="border:0;border-radius:8px;padding:8px 12px;background:#e5e7eb;color:#111;font-weight:600;font-size:13px;width:100%">🗑 삭제</button>
+      </div>`;
+      L.popup({ closeButton: true, autoPan: true }).setLatLng(poiLatLng(f)).setContent(html).openOn(map);
+    }
+    window._toggleFav = function (x, y) {
+      if (isFav(x, y)) { favorites = favorites.filter(f => !(f.x === x && f.y === y)); toast('즐겨찾기 해제'); }
+      else {
+        const p = POIS.find(pp => pp.x === x && pp.y === y) || {};
+        favorites.push({ x, y, name: p.name || (CAT[p.cat] || {}).label || '내 표시', cat: p.cat || 'fav' });
+        toast('⭐ 즐겨찾기에 추가됨'); Festmap.track('fav_add', { event: SLUG });
+      }
+      saveFavs(); renderFavs(); map.closePopup();
+    };
+    window._removeFav = function (x, y) {
+      favorites = favorites.filter(f => !(f.x === x && f.y === y));
+      saveFavs(); renderFavs(); map.closePopup(); toast('삭제됨');
+    };
+    // 빈 곳 꾹 누르기(모바일 long-press) / 우클릭(PC) → 그 자리에 즐겨찾기 추가
+    map.on('contextmenu', (e) => {
+      const x = Math.round(e.latlng.lng), y = Math.round(H - e.latlng.lat);
+      if (x < 0 || x > W || y < 0 || y > H) return;
+      const name = prompt('이 자리를 즐겨찾기에 저장할 이름 (예: 돗자리 깐 곳)', '내 표시');
+      if (name === null) return;
+      favorites.push({ x, y, name: name || '내 표시', cat: 'fav' });
+      saveFavs(); renderFavs(); toast('⭐ 즐겨찾기에 추가됨'); Festmap.track('fav_pin', { event: SLUG });
+    });
 
     // 검색
     function bindSearch() {
@@ -394,35 +452,16 @@
       });
     }
 
-    // 목표 지점
-    window._setDest = function (x, y) {
-      dest = POIS.find(p => p.x === x && p.y === y) || { x, y, cat: 'garden', name: '목표' };
-      map.closePopup();
-      if (destMarker) pinLayer.removeLayer(destMarker);
-      renderPins();
-      document.getElementById('navName').textContent = dest.name || '목표';
-      document.getElementById('navbar').classList.add('on');
-      updateDest(PPM0);
-      if (!located) setStatus('"내 위치"를 누르면 목표까지 거리와 방향이 표시돼요.');
-    };
-    document.getElementById('navClose').onclick = () => {
-      dest = null; document.getElementById('navbar').classList.remove('on');
-      if (destLine) { map.removeLayer(destLine); destLine = null; }
-      renderPins();
-    };
-    function updateDest(ppm) {
-      if (!dest) return;
-      const dll = poiLatLng(dest);
-      if (lastLatLng) {
-        if (!destLine) destLine = L.polyline([lastLatLng, dll], { color: '#111827', weight: 3, dashArray: '6 6', opacity: .8 }).addTo(map);
-        else destLine.setLatLngs([lastLatLng, dll]);
-        const dx = dll.lng - lastLatLng[1], dy = dll.lat - lastLatLng[0];  // lastLatLng=[lat,lng] 배열
-        const m = Math.round(Math.hypot(dx, dy) / Math.max(ppm || PPM0 || 1, 1e-6));
-        document.getElementById('navDist').textContent = '약 ' + m + 'm';
-      } else {
-        document.getElementById('navDist').textContent = '내 위치 필요';
-      }
+    // 공유받은 위치 거리(상단 바, 선 없이 거리만)
+    function updateSharedDist() {
+      if (!sharedXY) return;
+      const m = distMeters(sharedXY.x, sharedXY.y);
+      document.getElementById('navDist').textContent = m == null ? '내 위치 필요' : ('약 ' + m + 'm');
     }
+    document.getElementById('navClose').onclick = () => {
+      sharedXY = null; document.getElementById('navbar').classList.remove('on');
+      if (sharedMarker) { map.removeLayer(sharedMarker); sharedMarker = null; }
+    };
 
     document.getElementById('poiToggle').onclick = () => {
       document.getElementById('poibar').classList.toggle('on');
@@ -461,15 +500,15 @@
       if (!isFinite(la) || !isFinite(ln)) return;
       const [px, py] = toPixel(la, ln);
       if (px < 0 || px > W || py < 0 || py > H) { setStatus('공유받은 위치가 이 약도 범위 밖이에요.', true); return; }
-      dest = { x: Math.round(px), y: Math.round(py), cat: 'shared', name: '공유받은 위치' };
+      sharedXY = { x: Math.round(px), y: Math.round(py) };
+      sharedMarker = L.marker(poiLatLng(sharedXY), { icon: pinIcon('shared', true), zIndexOffset: 950 }).addTo(map);
       const t = +sp.get('t');
       const ago = t ? ' · ' + Math.max(0, Math.round((Date.now() - t) / 60000)) + '분 전' : '';
-      renderPins();
-      map.setView(poiLatLng(dest), 1);
+      map.setView(poiLatLng(sharedXY), 1);
       document.getElementById('navName').textContent = '공유받은 위치' + ago;
       document.getElementById('navbar').classList.add('on');
-      updateDest(PPM0);
-      setStatus('📍 친구가 공유한 위치예요. "내 위치"를 누르면 여기까지 거리·방향이 표시돼요.');
+      updateSharedDist();
+      setStatus('📍 친구가 공유한 위치예요. "내 위치"를 누르면 여기까지 거리가 표시돼요.');
     }
 
     function onOrient(e) {
