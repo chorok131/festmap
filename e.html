@@ -155,7 +155,7 @@
     const EDIT = new URLSearchParams(location.search).get('edit') === '1';   // ?edit=1 → 사이트 추가 편집 모드
     let editCat = 'garden';
 
-    const map = L.map('map', { crs: L.CRS.Simple, minZoom: -6, maxZoom: 4, zoomControl: true, attributionControl: false, fadeAnimation: true });
+    const map = L.map('map', { crs: L.CRS.Simple, minZoom: -6, maxZoom: 4, zoomControl: true, attributionControl: false, fadeAnimation: true, maxBoundsViscosity: 1.0 });
     const statusEl = document.getElementById('status');
     const setStatus = (t, warn) => { statusEl.textContent = t; statusEl.classList.toggle('warn', !!warn); };
 
@@ -347,6 +347,9 @@
       const bounds = [[0, 0], [H, W]];
       L.imageOverlay(imgUrl, bounds).addTo(map);
       map.fitBounds(bounds);
+      // 지도 밖(회색 빈 공간)으로 못 나가게 경계·축소 한정
+      map.setMaxBounds(L.latLngBounds(bounds).pad(0.05));
+      map.setMinZoom(map.getBoundsZoom(bounds));
       hom = buildHom(g.corners);
       const refLat = (g.corners.topLeft.lat + g.corners.bottomRight.lat) / 2;
       const refLng = (g.corners.topLeft.lng + g.corners.bottomRight.lng) / 2;
