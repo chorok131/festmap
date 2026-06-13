@@ -3,6 +3,7 @@
   "events": [
     {
       "slug": "seoulforest-2026",
+      "short": "seoulforest",
       "name": "서울숲 정원박람회",
       "venue": "서울숲공원",
       "city": "서울 성동구",
