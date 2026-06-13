@@ -501,10 +501,12 @@
     function loadFavs() { try { favorites = JSON.parse(localStorage.getItem(FAV_KEY) || '[]'); } catch (e) { favorites = []; } }
     function saveFavs() { try { localStorage.setItem(FAV_KEY, JSON.stringify(favorites)); } catch (e) {} }
     function isFav(x, y) { return favorites.some(f => f.x === x && f.y === y); }
+    // 깨끗한 SVG 별(이모지 ⭐ 대신 — 기기마다 동일하게 보임)
+    const STAR_SVG = '<svg width="11" height="11" viewBox="0 0 24 24" fill="#fff"><path d="M12 2l2.9 6.3 6.9.8-5.1 4.7 1.4 6.8L12 17.8 5.9 20.6l1.4-6.8L2.2 9.1l6.9-.8z"/></svg>';
     function renderFavs() {
       favLayer.clearLayers();
       favorites.forEach(f => {
-        const m = L.marker(poiLatLng(f), { icon: L.divIcon({ className: '', iconSize: [0, 0], html: '<div class="poi fav"><span>⭐</span></div>' }), zIndexOffset: 600 }).addTo(favLayer);
+        const m = L.marker(poiLatLng(f), { icon: L.divIcon({ className: '', iconSize: [0, 0], html: '<div class="poi fav"><span>' + STAR_SVG + '</span></div>' }), zIndexOffset: 600 }).addTo(favLayer);
         m.on('click', () => openFav(f));
       });
     }
@@ -529,15 +531,13 @@
       favorites = favorites.filter(f => !(f.x === x && f.y === y));
       saveFavs(); renderFavs(); map.closePopup(); toast('삭제됨');
     };
-    // 빈 곳 꾹 누르기(모바일 long-press) / 우클릭(PC) → 그 자리에 즐겨찾기 추가
+    // 빈 곳 꾹 누르기(모바일 long-press) / 우클릭(PC) → 그 자리에 바로 즐겨찾기 추가(입력 없음)
     map.on('contextmenu', (e) => {
       if (EDIT) return;   // 편집 모드에선 탭으로 POI 추가(즐겨찾기 비활성)
       const x = Math.round(e.latlng.lng), y = Math.round(H - e.latlng.lat);
       if (x < 0 || x > W || y < 0 || y > H) return;
-      const name = prompt('이 자리를 즐겨찾기에 저장할 이름 (예: 돗자리 깐 곳)', '내 표시');
-      if (name === null) return;
-      favorites.push({ x, y, name: name || '내 표시', cat: 'fav' });
-      saveFavs(); renderFavs(); toast('⭐ 즐겨찾기에 추가됨'); Festmap.track('fav_pin', { event: SLUG });
+      favorites.push({ x, y, name: '내 표시', cat: 'fav' });
+      saveFavs(); renderFavs(); toast('즐겨찾기에 추가됨'); Festmap.track('fav_pin', { event: SLUG });
     });
 
     // 검색
