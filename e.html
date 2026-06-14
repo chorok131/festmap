@@ -86,6 +86,11 @@
     .poi span { transform: rotate(45deg); font-size: 12px; line-height: 1; }
     .poi.target { width: 32px; height: 32px; margin-left: -16px; margin-top: -32px; z-index: 5; }
     .poi.fav { background: #f59e0b; }
+    /* 지도 텍스트 라벨 (기존 정원 이름처럼 흰 테두리) */
+    .maplabel { font-weight: 700; font-size: 13px; line-height: 1.1; color: #14300f; white-space: nowrap;
+      transform: translate(-50%, -50%); text-align: center;
+      text-shadow: -1.5px -1.5px 0 #fff, 1.5px -1.5px 0 #fff, -1.5px 1.5px 0 #fff, 1.5px 1.5px 0 #fff,
+        0 -1.5px 0 #fff, 0 1.5px 0 #fff, -1.5px 0 0 #fff, 1.5px 0 0 #fff; }
     /* 목표 안내 바 */
     #navbar { position: absolute; z-index: 1001; left: 10px; right: 10px; bottom: 44px; display: none;
       align-items: center; gap: 10px; background: #111827; color: #fff; border-radius: 12px; padding: 10px 14px;
@@ -358,7 +363,7 @@
       PPM0 = pxPerMeter(refLat, refLng);
       setStatus('"내 위치"를 눌러 현재 위치를 약도 위에 표시하세요. (위치·나침반 권한 허용 필요)');
       Festmap.track('open', { event: SLUG });
-      pinLayer.addTo(map); favLayer.addTo(map);   // 레이어는 항상(즐겨찾기·공유는 pois 없어도 동작)
+      pinLayer.addTo(map); favLayer.addTo(map); labelLayer.addTo(map);   // 레이어는 항상
       loadFavs(); renderFavs();                   // 저장된 즐겨찾기 복원
       await setupPois();                          // 핀/검색 (pois.json 있으면)
       setupEdit();                                // 편집 모드(?edit=1)면 사이트 추가 도구
@@ -379,13 +384,15 @@
       bus:       { label: '버스',    emoji: '🚌', color: '#7c3aed' },
       subway:    { label: '지하철',  emoji: '🚇', color: '#7c3aed' },
       garden:    { label: '정원',    emoji: '🌳', color: '#15803d' },
+      label:     { label: '텍스트 라벨', emoji: 'ㄱ', color: '#14300f' },
       shared:    { label: '공유 위치', emoji: '📍', color: '#e11d48' }
     };
     // 칩에 노출할 순서(데이터에 있는 것만)
     const CHIP_ORDER = ['toilet', 'store', 'cafe', 'foodtruck', 'parking', 'info', 'nursing', 'bus', 'garden'];
 
-    let POIS = [], pinLayer = L.layerGroup(), activeCats = new Set();
+    let POIS = [], pinLayer = L.layerGroup(), labelLayer = L.layerGroup(), activeCats = new Set();
     const poiLatLng = (p) => L.latLng(H - p.y, p.x);
+    function escHtml(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 
     function pinIcon(cat, target) {
       const c = CAT[cat] || { color: '#2563eb' };
@@ -404,7 +411,7 @@
       bindSearch();
       // 기본은 아무 카테고리도 켜지 않음(사용자가 칩을 눌러 표시)
       document.getElementById('poibar').classList.add('on');
-      renderPins();
+      refreshPois();   // 핀 + 텍스트 라벨
       syncChips();
     }
 
@@ -427,12 +434,21 @@
 
     function renderPins() {
       pinLayer.clearLayers();
-      POIS.filter(p => activeCats.has(p.cat)).forEach(p => addPin(p));
+      POIS.filter(p => p.cat !== 'label' && activeCats.has(p.cat)).forEach(p => addPin(p));
     }
     function addPin(p) {
       const m = L.marker(poiLatLng(p), { icon: pinIcon(p.cat), zIndexOffset: 400 }).addTo(pinLayer);
       m.on('click', () => openPoi(p));
     }
+    // 텍스트 라벨(항상 표시, 흰 테두리 글자). 편집 모드에선 탭하면 수정/삭제.
+    function renderLabels() {
+      labelLayer.clearLayers();
+      POIS.filter(p => p.cat === 'label').forEach(p => {
+        const m = L.marker(poiLatLng(p), { icon: L.divIcon({ className: '', iconSize: [0, 0], html: '<div class="maplabel">' + escHtml(p.name) + '</div>' }), interactive: EDIT, zIndexOffset: 350 }).addTo(labelLayer);
+        if (EDIT) m.on('click', () => openPoi(p));
+      });
+    }
+    function refreshPois() { renderPins(); renderLabels(); }
 
     function distMeters(x, y) {
       if (!lastImg) return null;
@@ -462,12 +478,12 @@
     }
     window._editPoi = function (x, y) {
       const p = POIS.find(pp => pp.x === x && pp.y === y); if (!p) return;
-      const n = prompt('장소 이름', p.name || ''); if (n == null) return;
-      p.name = n; renderPins(); map.closePopup(); toast('수정됨 — 다 되면 💾 내보내기');
+      const n = prompt(p.cat === 'label' ? '글자 수정' : '장소 이름', p.name || ''); if (n == null) return;
+      p.name = n; refreshPois(); map.closePopup(); toast('수정됨 — 다 되면 💾 내보내기');
     };
     window._delPoi = function (x, y) {
       POIS = POIS.filter(p => !(p.x === x && p.y === y));
-      renderPins(); map.closePopup(); toast('삭제됨 — 다 되면 💾 내보내기');
+      refreshPois(); map.closePopup(); toast('삭제됨 — 다 되면 💾 내보내기');
     };
 
     // 편집 모드: 지도 탭으로 사이트(POI) 추가 → pois.json 내보내기
@@ -478,14 +494,15 @@
       sel.value = editCat; sel.onchange = () => editCat = sel.value;
       document.getElementById('editbar').classList.add('on');
       new Set(POIS.map(p => p.cat)).forEach(c => activeCats.add(c));   // 편집 땐 전부 표시
-      renderPins(); syncChips();
+      refreshPois(); syncChips();
       map.on('click', (e) => {
         const x = Math.round(e.latlng.lng), y = Math.round(H - e.latlng.lat);
         if (x < 0 || x > W || y < 0 || y > H) return;
-        const name = prompt('추가할 ' + (CAT[editCat] || {}).label + ' 이름', '');
+        const ask = editCat === 'label' ? '지도에 넣을 글자' : ('추가할 ' + (CAT[editCat] || {}).label + ' 이름');
+        const name = prompt(ask, '');
         if (!name) return;
         POIS.push({ cat: editCat, name: name, x: x, y: y });
-        renderPins();
+        refreshPois();
         toast('추가됨: ' + name);
       });
       document.getElementById('editExport').onclick = () => {
@@ -546,11 +563,11 @@
       q.addEventListener('input', () => {
         const v = q.value.trim().toLowerCase();
         if (!v) { res.classList.remove('on'); res.innerHTML = ''; return; }
-        const hits = POIS.filter(p =>
+        const hits = POIS.filter(p => p.cat !== 'label' && (
           (p.name || '').toLowerCase().includes(v) ||
           (p.id || '').toLowerCase().includes(v) ||
           ((CAT[p.cat] || {}).label || '').includes(v)
-        ).slice(0, 20);
+        )).slice(0, 20);
         res.innerHTML = hits.map(p => {
           const c = CAT[p.cat] || {};
           return `<div class="row" data-x="${p.x}" data-y="${p.y}">
