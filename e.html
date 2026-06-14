@@ -449,12 +449,22 @@
       m.on('click', () => openPoi(p));
     }
     // 텍스트 라벨(항상 표시, 흰 테두리 글자). 편집 모드에선 탭하면 수정/삭제.
+    // 베이크된 정원 이름처럼 지도와 함께 확대/축소되도록 줌에 비례해 글자 크기 조정.
+    const LABEL_BASE = 22;   // 이미지 픽셀 기준 글자 크기(베이크된 라벨과 비슷)
+    function scaleLabels() {
+      const f = LABEL_BASE * Math.pow(2, map.getZoom());
+      const o = Math.max(0.5, f * 0.07);
+      const sh = [[-1,-1],[1,-1],[-1,1],[1,1],[0,-1],[0,1],[-1,0],[1,0]].map(d => (d[0]*o) + 'px ' + (d[1]*o) + 'px 0 #fff').join(',');
+      document.querySelectorAll('.maplabel').forEach(el => { el.style.fontSize = f + 'px'; el.style.textShadow = sh; });
+    }
+    map.on('zoom zoomend', scaleLabels);
     function renderLabels() {
       labelLayer.clearLayers();
       POIS.filter(p => p.cat === 'label').forEach(p => {
         const m = L.marker(poiLatLng(p), { icon: L.divIcon({ className: '', iconSize: [0, 0], html: '<div class="maplabel">' + escHtml(p.name) + '</div>' }), interactive: EDIT, zIndexOffset: 350 }).addTo(labelLayer);
         if (EDIT) m.on('click', () => openPoi(p));
       });
+      scaleLabels();
     }
     function refreshPois() { renderPins(); renderLabels(); }
 
