@@ -285,7 +285,7 @@
       }
     }
 
-    let watching = false;
+    let watching = false, watchId = null;
     const followBtn = document.getElementById('follow');
     function updateFollowBtn() {
       const on = located && follow;
@@ -318,9 +318,17 @@
       if (!navigator.geolocation) { setStatus('이 브라우저는 위치를 지원하지 않습니다.', true); return; }
       setStatus('내 위치 찾는 중…');
       watching = true; follow = true; updateFollowBtn();
-      navigator.geolocation.watchPosition(
+      if (watchId != null) navigator.geolocation.clearWatch(watchId);
+      watchId = navigator.geolocation.watchPosition(
         (p) => showMe(p.coords.latitude, p.coords.longitude, p.coords.accuracy),
-        (err) => setStatus('위치 오류: ' + err.message + ' (https에서만 동작)', true),
+        (err) => {
+          watching = false; updateFollowBtn();   // 실패 시 풀어서 "내 위치" 다시 누를 수 있게
+          if (watchId != null) { navigator.geolocation.clearWatch(watchId); watchId = null; }
+          if (err.code === 1) setStatus('위치 권한이 꺼져 있어요. 설정에서 이 브라우저의 위치 권한을 허용한 뒤 "내 위치"를 다시 눌러주세요.', true);
+          else if (err.code === 2) setStatus('위치를 찾을 수 없어요. 잠시 후 "내 위치"를 다시 눌러주세요.', true);
+          else if (err.code === 3) setStatus('위치 찾기가 지연돼요. "내 위치"를 다시 눌러주세요.', true);
+          else setStatus('위치 오류: ' + (err.message || ''), true);
+        },
         { enableHighAccuracy: true, maximumAge: 1000, timeout: 15000 }
       );
     }
