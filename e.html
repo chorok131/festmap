@@ -460,9 +460,11 @@
     map.on('zoom zoomend', scaleLabels);
     function renderLabels() {
       labelLayer.clearLayers();
+      if (!EDIT) return;   // 일반 모드: 텍스트는 이미지에 구워넣음(동적 렌더 안 함 → 줌 스케일 문제 없음)
+      // 편집 모드에서만: 위치 잡기용으로 표시(내보내기 → 이미지에 베이크)
       POIS.filter(p => p.cat === 'label').forEach(p => {
-        const m = L.marker(poiLatLng(p), { icon: L.divIcon({ className: '', iconSize: [0, 0], html: '<div class="maplabel">' + escHtml(p.name) + '</div>' }), interactive: EDIT, zIndexOffset: 350 }).addTo(labelLayer);
-        if (EDIT) m.on('click', () => openPoi(p));
+        const m = L.marker(poiLatLng(p), { icon: L.divIcon({ className: '', iconSize: [0, 0], html: '<div class="maplabel">' + escHtml(p.name) + '</div>' }), interactive: true, zIndexOffset: 350 }).addTo(labelLayer);
+        m.on('click', () => openPoi(p));
       });
       scaleLabels();
     }
