@@ -190,6 +190,7 @@
 
     let W = 0, H = 0, hom = null, northAngle = 0;
     let meMarker = null, accCircle = null, coneEl = null, heading = 0;
+    let meCur = null, meTgt = null, meAnim = null, meOutside = false;   // GPS 보간용
     let located = false, follow = false;
     let lastLatLng = null;                 // 마지막 내 위치(지도 픽셀 좌표)
     let lastGPS = null;                    // 마지막 내 위치(실제 GPS lat/lng, 공유용)
@@ -253,36 +254,55 @@
     }
 
     function showMe(lat, lng, acc) {
+      // 정확도 너무 나쁜 값은(이미 위치가 있을 때) 무시 → 큰 튐 방지
+      if (located && acc && acc > 150) return;
       const [px, py] = toPixel(lat, lng);
-      const ll = pxToLatLng(px, py);
-      lastLatLng = ll;
+      const ppm = pxPerMeter(lat, lng);
+      const accPx = (acc || 0) * ppm;
+      meOutside = px < 0 || px > W || py < 0 || py > H;
+      lastLatLng = pxToLatLng(px, py);
       lastGPS = { lat: lat, lng: lng };
       lastImg = { px: px, py: py };
-      const outside = px < 0 || px > W || py < 0 || py > H;
-      const ppm = pxPerMeter(lat, lng);
       updateSharedDist();
-
-      const accPx = (acc || 0) * ppm;
-      if (!accCircle) accCircle = L.circle(ll, { radius: accPx, color: '#1d4ed8', weight: 1, opacity: .4, fillColor: '#3b82f6', fillOpacity: .12, interactive: false }).addTo(map);
-      else { accCircle.setLatLng(ll); accCircle.setRadius(accPx); }
-
-      ensureMarker(ll);
-      meMarker.setLatLng(ll);
-      applyCone();
-
-      if (!located) { located = true; follow = true; updateFollowBtn(); map.flyTo(ll, LOCATE_ZOOM, { duration: 0.8 }); }
-      else if (follow && !outside) map.panTo(ll, { animate: true, duration: 0.5 });
-
       // [D의 씨앗] 동선/체류시간 리포트의 원천. 지금은 외부 전송 없음(analytics.js 참고).
-      Festmap.ping({ event: SLUG, lat: +lat.toFixed(6), lng: +lng.toFixed(6), acc: Math.round(acc || 0), inside: !outside });
+      Festmap.ping({ event: SLUG, lat: +lat.toFixed(6), lng: +lng.toFixed(6), acc: Math.round(acc || 0), inside: !meOutside });
 
-      if (outside) {
+      // 목표 위치를 지수 평활(GPS 노이즈 완화)
+      if (!meTgt) { meTgt = { px: px, py: py, acc: accPx }; meCur = { px: px, py: py, acc: accPx }; }
+      else { const a = 0.5; meTgt.px += (px - meTgt.px) * a; meTgt.py += (py - meTgt.py) * a; meTgt.acc += (accPx - meTgt.acc) * a; }
+
+      const tll = pxToLatLng(meTgt.px, meTgt.py);
+      if (!located) { located = true; follow = true; updateFollowBtn(); map.flyTo(tll, LOCATE_ZOOM, { duration: 0.8 }); }
+      else if (follow && !meOutside) map.panTo(tll, { animate: true, duration: 0.6 });
+      startMeAnim();   // 마커/정확도원을 목표로 부드럽게 이동(glide)
+
+      if (meOutside) {
         const cx = Math.min(Math.max(px, 0), W), cy = Math.min(Math.max(py, 0), H);
         const m = Math.round(Math.hypot(px - cx, py - cy) / Math.max(ppm, 1e-6));
         setStatus(`현위치가 약도 범위 밖이에요 (약 ${m}m). 행사장 안에서 다시 확인하세요.`, true);
       } else {
-        setStatus(`내 위치 표시 중 · 정확도 ±${Math.round(acc || 0)}m · 방향 ${Math.round(heading)}° · 따라가기 ${follow ? 'ON' : 'OFF'}`);
+        setStatus(`내 위치 표시 중 · 정확도 ±${Math.round(acc || 0)}m`);
       }
+    }
+
+    // GPS 보간: 표시 위치(meCur)를 목표(meTgt)로 매 프레임 부드럽게 이동
+    function startMeAnim() { if (meAnim == null) stepMeAnim(); }   // 즉시 1프레임(마커 바로 표시) + 이후 rAF로 glide
+    function stepMeAnim() {
+      meAnim = null;
+      if (!meTgt || !meCur) return;
+      const k = 0.22;
+      meCur.px += (meTgt.px - meCur.px) * k;
+      meCur.py += (meTgt.py - meCur.py) * k;
+      meCur.acc += (meTgt.acc - meCur.acc) * k;
+      const ll = pxToLatLng(meCur.px, meCur.py);
+      ensureMarker(ll);
+      meMarker.setLatLng(ll);
+      applyCone();
+      if (!accCircle) accCircle = L.circle(ll, { radius: Math.max(0, meCur.acc), color: '#1d4ed8', weight: 1, opacity: .4, fillColor: '#3b82f6', fillOpacity: .12, interactive: false }).addTo(map);
+      else { accCircle.setLatLng(ll); accCircle.setRadius(Math.max(0, meCur.acc)); }
+      const done = Math.hypot(meTgt.px - meCur.px, meTgt.py - meCur.py) < 0.5 && Math.abs(meTgt.acc - meCur.acc) < 0.5;
+      if (!done) meAnim = requestAnimationFrame(stepMeAnim);
+      else { meCur.px = meTgt.px; meCur.py = meTgt.py; meCur.acc = meTgt.acc; }
     }
 
     let watching = false, watchId = null;
@@ -667,7 +687,11 @@
     function onOrient(e) {
       let h = (e.webkitCompassHeading != null) ? e.webkitCompassHeading
             : (e.absolute && e.alpha != null) ? (360 - e.alpha) : null;
-      if (h != null) { heading = h; applyCone(); }
+      if (h == null) return;
+      // 나침반 떨림 완화: 최단 회전 방향으로 각도 지수 평활
+      const d = ((h - heading + 540) % 360) - 180;
+      heading = (heading + d * 0.25 + 360) % 360;
+      applyCone();
     }
     // 상단 버튼 = 내 위치 공유
     document.getElementById('go').addEventListener('click', () => {
