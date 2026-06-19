@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>동선·체류 리포트 · 축제지도</title>
+  <style>
+    :root { --ink:#111827; --muted:#6b7280; --line:#e5e7eb; --blue:#2563eb; --bg:#f8fafc; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; }
+    body { font-family: -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; color: var(--ink); background: #eef1f5; line-height: 1.5; }
+    .sheet { max-width: 860px; margin: 24px auto; background: #fff; border-radius: 16px; box-shadow: 0 6px 30px rgba(0,0,0,.08); padding: 32px; }
+    @media print { body { background:#fff; } .sheet { box-shadow:none; margin:0; max-width:none; } .noprint { display:none !important; } }
+
+    .head { display: flex; align-items: flex-start; gap: 12px; flex-wrap: wrap; border-bottom: 2px solid var(--ink); padding-bottom: 16px; }
+    .head h1 { font-size: 22px; margin: 0 0 4px; letter-spacing: -.5px; }
+    .head .ev { color: var(--muted); font-size: 14px; }
+    .head .sp { flex: 1; }
+    .badge { background: #fef3c7; color: #92400e; font-size: 12px; font-weight: 800; padding: 4px 10px; border-radius: 20px; }
+    .meta { color: var(--muted); font-size: 12px; text-align: right; }
+
+    .cards { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; margin: 22px 0; }
+    @media (max-width: 640px) { .cards { grid-template-columns: 1fr 1fr; } }
+    .card { background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
+    .card .k { color: var(--muted); font-size: 12px; margin-bottom: 4px; }
+    .card .v { font-size: 24px; font-weight: 800; letter-spacing: -.5px; }
+    .card .v small { font-size: 13px; font-weight: 600; color: var(--muted); }
+
+    h2 { font-size: 16px; margin: 26px 0 10px; }
+    .mapwrap { position: relative; border-radius: 12px; overflow: hidden; border: 1px solid var(--line); }
+    .mapwrap img { width: 100%; display: block; }
+    .mapwrap canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+    .legend { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); margin-top: 8px; }
+    .legend .bar { height: 10px; width: 160px; border-radius: 6px; background: linear-gradient(90deg,#1e90ff,#22c55e,#eab308,#ef4444); }
+
+    .cols { display: grid; grid-template-columns: 1.1fr 1fr; gap: 24px; margin-top: 8px; }
+    @media (max-width: 640px) { .cols { grid-template-columns: 1fr; } }
+    .arearow { display: flex; align-items: center; gap: 10px; margin: 9px 0; font-size: 14px; }
+    .arearow .rank { width: 20px; height: 20px; border-radius: 50%; background: var(--ink); color: #fff; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex: 0 0 auto; }
+    .arearow .nm { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .arearow .track { width: 90px; height: 8px; background: #eef2f7; border-radius: 6px; overflow: hidden; flex: 0 0 auto; }
+    .arearow .fill { height: 100%; background: var(--blue); }
+    .arearow .pct { width: 34px; text-align: right; font-weight: 700; font-size: 13px; flex: 0 0 auto; }
+
+    .hours { display: flex; align-items: flex-end; gap: 6px; height: 130px; padding-top: 8px; }
+    .hours .h { flex: 1; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 4px; }
+    .hours .h .b { width: 100%; background: var(--blue); border-radius: 4px 4px 0 0; min-height: 2px; }
+    .hours .h.peak .b { background: #ef4444; }
+    .hours .h .lab { font-size: 10px; color: var(--muted); }
+
+    .foot { margin-top: 26px; border-top: 1px solid var(--line); padding-top: 14px; color: var(--muted); font-size: 12px; }
+    .printbtn { border: 0; border-radius: 8px; padding: 9px 16px; background: var(--ink); color: #fff; font-weight: 600; font-size: 13px; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <div class="sheet">
+    <div class="head">
+      <div>
+        <h1>관람객 동선·체류 리포트</h1>
+        <div class="ev" id="evName">행사명</div>
+      </div>
+      <span class="sp"></span>
+      <div style="text-align:right">
+        <span class="badge" id="demoBadge">샘플 리포트</span>
+        <div class="meta" id="genMeta"></div>
+      </div>
+    </div>
+
+    <div class="cards" id="cards"></div>
+
+    <h2>혼잡 히트맵 — 관람객이 머문 곳</h2>
+    <div class="mapwrap">
+      <img id="map" alt="행사 약도" />
+      <canvas id="heat"></canvas>
+    </div>
+    <div class="legend"><span>적음</span><div class="bar"></div><span>많음</span> · 진한 곳일수록 관람객이 많이 머문 구역</div>
+
+    <div class="cols">
+      <div>
+        <h2>가장 붐빈 구역 TOP</h2>
+        <div id="areas"></div>
+      </div>
+      <div>
+        <h2>시간대별 방문</h2>
+        <div class="hours" id="hours"></div>
+      </div>
+    </div>
+
+    <div class="foot">
+      <p id="footNote">⚠️ 본 리포트는 <b>샘플(예시) 데이터</b>로 작성됐습니다. 실제 행사에서는 익명 집계된 진짜 관람객 동선으로 자동 생성됩니다.</p>
+      <p>minimap.kr · 동선·체류 데이터 리포트 &nbsp;<button class="printbtn noprint" onclick="window.print()">PDF로 저장 / 인쇄</button></p>
+    </div>
+  </div>
+
+  <script>
+    const SLUG = new URLSearchParams(location.search).get('event') || 'seoulforest-2026';
+    const BASE = 'events/' + SLUG + '/';
+
+    function fmtDate(d) { return d.getFullYear() + '.' + (d.getMonth()+1) + '.' + d.getDate(); }
+
+    (async function () {
+      let data, g;
+      try {
+        data = await (await fetch(BASE + 'traffic-demo.json')).json();
+        g = await (await fetch(BASE + 'georef.json')).json();
+      } catch (e) { document.body.innerHTML = '<p style="padding:40px;font-family:sans-serif">리포트 데이터를 불러올 수 없어요.</p>'; return; }
+
+      document.getElementById('evName').textContent = (data.event || '') + ' · ' + (data.stats.visitors) + '명 기준';
+      document.getElementById('genMeta').textContent = '생성일 ' + fmtDate(new Date());
+      if (!data.demo) document.getElementById('demoBadge').style.display = 'none';
+      if (!data.demo) document.getElementById('footNote').style.display = 'none';
+
+      const s = data.stats;
+      document.getElementById('cards').innerHTML = [
+        ['방문자(추정)', s.visitors + '<small>명</small>'],
+        ['평균 체류', s.avgDwellMin + '<small>분</small>'],
+        ['피크 시간대', s.peakHour + '<small>시</small>'],
+        ['측정 위치수', (s.totalPings).toLocaleString() + '<small>건</small>']
+      ].map(c => `<div class="card"><div class="k">${c[0]}</div><div class="v">${c[1]}</div></div>`).join('');
+
+      // 인기 구역
+      const maxShare = Math.max(...data.byArea.map(a => a.share), 1);
+      document.getElementById('areas').innerHTML = data.byArea.map((a, i) =>
+        `<div class="arearow"><div class="rank">${i+1}</div><div class="nm">${a.name}</div>
+         <div class="track"><div class="fill" style="width:${Math.round(a.share/maxShare*100)}%"></div></div>
+         <div class="pct">${a.share}%</div></div>`).join('');
+
+      // 시간대 그래프
+      const maxV = Math.max(...data.hourly.map(h => h.v), 1);
+      document.getElementById('hours').innerHTML = data.hourly.map(h =>
+        `<div class="h ${h.h===s.peakHour?'peak':''}"><div class="b" style="height:${Math.round(h.v/maxV*100)}%"></div><div class="lab">${h.h}</div></div>`).join('');
+
+      // 히트맵
+      const img = document.getElementById('map');
+      await new Promise(res => { img.onload = res; img.onerror = res; img.src = BASE + g.image; });
+      drawHeat(img, data.points);
+      window.addEventListener('resize', () => drawHeat(img, data.points));
+    })();
+
+    function gradient() {
+      const c = document.createElement('canvas'); c.width = 256; c.height = 1;
+      const ctx = c.getContext('2d'); const gr = ctx.createLinearGradient(0, 0, 256, 0);
+      gr.addColorStop(0.0, '#1e90ff'); gr.addColorStop(0.4, '#22c55e'); gr.addColorStop(0.65, '#eab308'); gr.addColorStop(1.0, '#ef4444');
+      ctx.fillStyle = gr; ctx.fillRect(0, 0, 256, 1);
+      return ctx.getImageData(0, 0, 256, 1).data;
+    }
+    function brush(r) {
+      const c = document.createElement('canvas'); c.width = c.height = r * 2;
+      const ctx = c.getContext('2d'); const gr = ctx.createRadialGradient(r, r, 0, r, r, r);
+      gr.addColorStop(0, 'rgba(0,0,0,1)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = gr; ctx.fillRect(0, 0, r * 2, r * 2); return c;
+    }
+    function drawHeat(img, points) {
+      const w = img.clientWidth, h = img.clientHeight;
+      if (!w || !h) return;
+      const cv = document.getElementById('heat'); cv.width = w; cv.height = h;
+      const ctx = cv.getContext('2d');
+      const sx = w / img.naturalWidth, sy = h / img.naturalHeight;
+      const R = Math.max(10, Math.round(w * 0.022));
+      const b = brush(R);
+      ctx.clearRect(0, 0, w, h);
+      ctx.globalAlpha = 0.11;
+      for (const p of points) ctx.drawImage(b, p[0] * sx - R, p[1] * sy - R);
+      ctx.globalAlpha = 1;
+      const pal = gradient();
+      const im = ctx.getImageData(0, 0, w, h), d = im.data;
+      for (let i = 0; i < d.length; i += 4) {
+        const a = d[i + 3];
+        if (a > 0) { const j = a * 4; d[i] = pal[j]; d[i + 1] = pal[j + 1]; d[i + 2] = pal[j + 2]; d[i + 3] = Math.min(Math.round(a * 1.3), 205); }
+      }
+      ctx.putImageData(im, 0, 0);
+    }
+  </script>
+</body>
+</html>
