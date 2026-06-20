@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>인쇄용 QR · 축제지도</title>
+  <script src="vendor/qrcode.js"></script>
+  <style>
+    :root { --ink:#111827; --muted:#6b7280; --line:#e5e7eb; --blue:#2563eb; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; }
+    body { font-family: -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; color: var(--ink); background: #eef1f5; }
+    .page { max-width: 520px; margin: 24px auto; }
+
+    /* 인쇄될 카드 */
+    .card { background: #fff; border-radius: 20px; padding: 40px 36px; text-align: center; box-shadow: 0 6px 30px rgba(0,0,0,.08); }
+    .card .ev { font-size: 22px; font-weight: 800; letter-spacing: -.5px; margin: 0 0 4px; }
+    .card .sub { color: var(--muted); font-size: 14px; margin: 0 0 26px; }
+    .qrbox { display: inline-block; padding: 16px; border: 1px solid var(--line); border-radius: 16px; }
+    .qrbox svg { display: block; width: 280px; height: 280px; }
+    .guide { margin: 26px 0 6px; font-size: 18px; font-weight: 700; }
+    .guide2 { color: #374151; font-size: 14px; margin: 0; }
+    .brand { margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; }
+    .brand b { color: var(--blue); }
+    .urltxt { font-size: 12px; color: #9ca3af; margin-top: 2px; word-break: break-all; }
+
+    /* 화면 전용 컨트롤 */
+    .controls { margin: 16px 4px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    .controls .note { color: var(--muted); font-size: 13px; flex-basis: 100%; margin-bottom: 4px; }
+    .btn { border: 0; border-radius: 10px; padding: 11px 16px; font-weight: 700; font-size: 14px; cursor: pointer; }
+    .btn.p { background: var(--ink); color: #fff; }
+    .btn.s { background: #fff; color: var(--ink); border: 1px solid var(--line); }
+    a.back { display: inline-block; color: var(--blue); text-decoration: none; font-weight: 600; font-size: 14px; margin: 0 4px 8px; }
+
+    @media print {
+      body { background: #fff; }
+      .page { margin: 0; max-width: none; }
+      .card { box-shadow: none; border-radius: 0; }
+      .noprint { display: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <a class="back noprint" href="index.html">‹ 축제지도</a>
+    <div class="controls noprint">
+      <div class="note">이 QR을 인쇄·배너·안내판에 쓰세요. <b>한 번 출력하면 URL이 바뀌지 않아</b> 계약기간 내내 그대로 작동해요.</div>
+      <button class="btn p" id="print">인쇄 / PDF 저장</button>
+      <button class="btn s" id="dlPng">PNG 다운로드</button>
+      <button class="btn s" id="dlSvg">SVG 다운로드 (확대용)</button>
+    </div>
+
+    <div class="card" id="card">
+      <p class="ev" id="ev">행사명</p>
+      <p class="sub">행사장 안내 지도</p>
+      <div class="qrbox" id="qrbox"></div>
+      <p class="guide">📷 휴대폰 카메라로 스캔</p>
+      <p class="guide2">약도 위에 <b>내 현재 위치</b>가 실시간으로 떠요 · 화장실·정원 검색까지</p>
+      <div class="brand">
+        <div><b>minimap.kr</b> · 행사장 실시간 위치 지도</div>
+        <div class="urltxt" id="urltxt"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const SLUG = new URLSearchParams(location.search).get('event') || 'seoulforest-2026';
+    let TARGET = 'https://minimap.kr/e.html?event=' + SLUG;
+
+    (async function () {
+      // 행사 정보(이름·짧은 슬러그)로 안정 URL 구성
+      try {
+        const { events } = await (await fetch('events/events.json')).json();
+        const ev = (events || []).find(e => e.slug === SLUG);
+        if (ev) {
+          document.getElementById('ev').textContent = ev.name || '행사 지도';
+          if (ev.short) TARGET = 'https://minimap.kr/' + ev.short;   // 안정 딥링크
+        }
+      } catch (e) {}
+      document.getElementById('urltxt').textContent = TARGET;
+
+      // QR 생성 (오류정정 H = 인쇄/오염에 강함)
+      const qr = qrcode(0, 'H');
+      qr.addData(TARGET);
+      qr.make();
+      document.getElementById('qrbox').innerHTML = qr.createSvgTag({ cellSize: 8, margin: 0, scalable: true });
+
+      // 다운로드 핸들러
+      document.getElementById('print').onclick = () => window.print();
+      document.getElementById('dlPng').onclick = () => {
+        const url = qr.createDataURL(16, 4);   // 고해상 PNG
+        const a = document.createElement('a'); a.href = url; a.download = SLUG + '-qr.png'; a.click();
+      };
+      document.getElementById('dlSvg').onclick = () => {
+        const svg = qr.createSvgTag({ cellSize: 16, margin: 4 });
+        const blob = new Blob([svg], { type: 'image/svg+xml' });
+        const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = SLUG + '-qr.svg'; a.click();
+      };
+    })();
+  </script>
+</body>
+</html>
