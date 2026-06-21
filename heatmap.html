@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>익명 격자 히트맵 — 작동 방식 · 축제지도</title>
+  <meta name="description" content="개인 GPS 경로를 저장하지 않고도 '어느 구역이 붐볐나'를 보여주는 익명 격자 집계 방식. 같은 움직임을 원본 경로와 격자 집계로 비교해 보여줍니다." />
+  <style>
+    :root { --ink:#111827; --muted:#6b7280; --line:#e5e7eb; --blue:#2563eb; --bg:#f8fafc; --danger:#dc2626; --ok:#15803d; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; }
+    body { font-family: -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; color: var(--ink); background: #eef1f5; line-height: 1.55; }
+    .sheet { max-width: 880px; margin: 24px auto; background: #fff; border-radius: 16px; box-shadow: 0 6px 30px rgba(0,0,0,.08); padding: 28px 30px 34px; }
+
+    h1 { font-size: 22px; margin: 0 0 4px; letter-spacing: -.5px; }
+    .lead { color: var(--muted); font-size: 14px; margin: 0 0 18px; }
+
+    .toggle { display: inline-flex; background: #eef2f7; border-radius: 12px; padding: 4px; gap: 4px; }
+    .toggle button { border: 0; background: transparent; padding: 9px 16px; border-radius: 9px; font-weight: 700; font-size: 14px; color: var(--muted); cursor: pointer; }
+    .toggle button.on { background: #fff; color: var(--ink); box-shadow: 0 1px 4px rgba(0,0,0,.12); }
+    .toggle button.on.raw { color: var(--danger); }
+    .toggle button.on.grid { color: var(--ok); }
+
+    .mapwrap { position: relative; border-radius: 12px; overflow: hidden; border: 1px solid var(--line); margin: 14px 0 8px; background:#f3f4f6; }
+    .mapwrap img { width: 100%; display: block; }
+    .mapwrap canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+
+    .verdict { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 600; padding: 12px 14px; border-radius: 10px; margin: 6px 0 4px; }
+    .verdict.raw { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
+    .verdict.grid { background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; }
+    .verdict .tag { font-size: 11px; font-weight: 800; padding: 3px 8px; border-radius: 20px; flex: 0 0 auto; }
+    .verdict.raw .tag { background:#dc2626; color:#fff; }
+    .verdict.grid .tag { background:#16a34a; color:#fff; }
+
+    .ctrls { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; font-size: 13px; color: var(--muted); margin: 10px 0 0; }
+    .ctrls label { display: flex; align-items: center; gap: 8px; }
+    .ctrls input[type=range] { accent-color: var(--blue); }
+    .legend { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
+    .legend .bar { height: 10px; width: 130px; border-radius: 6px; background: linear-gradient(90deg,#bfdbfe,#22c55e,#eab308,#ef4444); }
+
+    .stat { display:flex; gap:18px; flex-wrap:wrap; margin: 16px 0 0; }
+    .stat .b { font-size: 13px; color: var(--muted); }
+    .stat .b b { display:block; font-size: 20px; color: var(--ink); font-weight: 800; letter-spacing:-.5px; }
+
+    h2 { font-size: 16px; margin: 26px 0 10px; }
+    .rules { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    @media (max-width: 620px) { .rules { grid-template-columns: 1fr; } }
+    .rule { border: 1px solid var(--line); border-radius: 12px; padding: 13px 15px; background: var(--bg); }
+    .rule .n { display:inline-flex; width:22px; height:22px; border-radius:50%; background:var(--ok); color:#fff; font-size:12px; font-weight:800; align-items:center; justify-content:center; margin-right:8px; }
+    .rule .t { font-weight: 700; font-size: 14px; }
+    .rule .d { font-size: 12.5px; color: var(--muted); margin: 5px 0 0; }
+
+    .foot { margin-top: 24px; border-top: 1px solid var(--line); padding-top: 14px; color: var(--muted); font-size: 12px; }
+    .foot a { color: var(--blue); }
+  </style>
+</head>
+<body>
+  <div class="sheet">
+    <h1>익명 격자 히트맵 — 어떻게 안전하게 집계되나</h1>
+    <p class="lead">아래는 <b>같은 관람객 움직임</b>을 두 가지로 그린 예시입니다. 버튼을 눌러 비교해 보세요. 축제지도는 <b>오른쪽(격자 집계)</b> 방식만 사용해 개인 경로를 저장하지 않습니다.</p>
+
+    <div class="toggle" id="toggle">
+      <button data-mode="raw" class="raw">① 원본 GPS 경로</button>
+      <button data-mode="grid" class="grid on">② 격자 집계 (사용 방식)</button>
+    </div>
+
+    <div class="verdict grid" id="verdict"><span class="tag">안전</span><span id="verdictText"></span></div>
+
+    <div class="mapwrap">
+      <img id="map" alt="행사 약도 예시" />
+      <canvas id="cv"></canvas>
+    </div>
+
+    <div class="ctrls">
+      <label id="threshWrap">표시 임계값 <input type="range" id="thresh" min="1" max="8" value="3" /> <b id="threshVal" style="color:var(--ink)">3</b>명 이상 칸만</label>
+      <span class="legend">적음 <span class="bar"></span> 많음</span>
+    </div>
+
+    <div class="stat">
+      <div class="b"><b id="stSessions">0</b>익명 세션(예시)</div>
+      <div class="b"><b id="stCells">0</b>표시된 구역(칸)</div>
+      <div class="b"><b id="stHidden">0</b>숨긴 희소 칸</div>
+      <div class="b"><b>25m</b>칸 한 변 크기</div>
+    </div>
+
+    <h2>이 방식이 동의 없이도 안전한 이유 — 4원칙을 코드로 강제</h2>
+    <div class="rules">
+      <div class="rule"><div class="t"><span class="n">1</span>칸을 크게</div><div class="d">약 25m 격자로 뭉갬. 한 칸 안에 여러 명이 섞여 개인 식별 불가.</div></div>
+      <div class="rule"><div class="t"><span class="n">2</span>세션ID 분리</div><div class="d">서버엔 "칸별 카운터 +1"만 남김. 누가 어느 칸들을 밟았는지 순서를 저장하지 않음 → 경로 복원 불가.</div></div>
+      <div class="rule"><div class="t"><span class="n">3</span>희소 칸 숨김</div><div class="d">기준 인원(예: 3명) 미만 칸은 리포트에서 제외. 새벽에 혼자 지나간 칸으로 특정되는 일 방지.</div></div>
+      <div class="rule"><div class="t"><span class="n">4</span>시각 뭉갬</div><div class="d">하루 단위로만 집계, 초·분 단위 시각 미저장. "몇 시 몇 분에 어디" 추적 불가.</div></div>
+    </div>
+
+    <div class="foot">
+      <p>※ 위 데이터는 방식 설명을 위한 <b>예시(시뮬레이션)</b>입니다. 실제 행사에서는 <code>track:"heat"</code> 설정으로 이 격자 집계가 자동 생성됩니다. 개인 GPS 경로 저장은 <b>관람객 본인 동의</b>를 받은 특수한 경우에만 별도로 진행합니다.</p>
+      <p>minimap.kr · <a href="report.html">동선·체류 리포트 예시 보기 ▸</a></p>
+    </div>
+  </div>
+
+  <script>
+    const IMG = 'events/seoulforest-2026/map_labeled.png';
+    const CELL_FRAC = 0.052;           // 칸 한 변 = 이미지 폭의 약 5.2% (≈25m 가정)
+    let mode = 'grid', thresh = 3, sessions = [], natW = 1, natH = 1;
+
+    // 시드 RNG (예시 데이터 고정 — 새로고침해도 동일)
+    function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+    function gauss(rng,m,s){return m+(rng()+rng()+rng()-1.5)*2*s;}
+
+    // 붐비는 핫스팟 몇 곳을 중심으로 익명 세션 경로 생성 (분수 좌표 0~1)
+    function makeSessions(){
+      const rng = mulberry32(20260621);
+      const hot = [[0.30,0.46,1.6],[0.54,0.34,1.3],[0.68,0.60,1.1],[0.46,0.72,1.0],[0.80,0.50,0.8],[0.22,0.30,0.6]];
+      const totW = hot.reduce((s,h)=>s+h[2],0);
+      const out = [];
+      for(let i=0;i<60;i++){
+        let r=rng()*totW, hs=hot[0];
+        for(const h of hot){ if(r<h[2]){hs=h;break;} r-=h[2]; }
+        let x=gauss(rng,hs[0],0.05), y=gauss(rng,hs[1],0.05);
+        const steps=3+Math.floor(rng()*6), path=[];
+        for(let s=0;s<steps;s++){
+          x=Math.min(0.97,Math.max(0.03,x+gauss(rng,0,0.018)));
+          y=Math.min(0.97,Math.max(0.03,y+gauss(rng,0,0.018)));
+          path.push([x,y]);
+        }
+        out.push(path);
+      }
+      return out;
+    }
+
+    function gradAt(t){ // t 0~1 → 색
+      const stops=[[191,219,254],[34,197,94],[234,179,8],[239,68,68]];
+      const seg=Math.min(stops.length-2, Math.floor(t*(stops.length-1)));
+      const f=t*(stops.length-1)-seg, a=stops[seg], b=stops[seg+1];
+      return [Math.round(a[0]+(b[0]-a[0])*f),Math.round(a[1]+(b[1]-a[1])*f),Math.round(a[2]+(b[2]-a[2])*f)];
+    }
+
+    function draw(){
+      const img=document.getElementById('map'), cv=document.getElementById('cv');
+      const w=img.clientWidth, h=img.clientHeight; if(!w||!h) return;
+      cv.width=w; cv.height=h; const ctx=cv.getContext('2d'); ctx.clearRect(0,0,w,h);
+
+      if(mode==='raw'){
+        // 개인별 경로선 + 점 — 한 사람 한 사람의 이동이 그대로 드러남(위험)
+        for(const p of sessions){
+          ctx.strokeStyle='rgba(220,38,38,.45)'; ctx.lineWidth=1.6; ctx.beginPath();
+          p.forEach((pt,i)=>{ const X=pt[0]*w,Y=pt[1]*h; i?ctx.lineTo(X,Y):ctx.moveTo(X,Y); }); ctx.stroke();
+          for(const pt of p){ ctx.fillStyle='rgba(185,28,28,.7)'; ctx.beginPath(); ctx.arc(pt[0]*w,pt[1]*h,2.4,0,7); ctx.fill(); }
+        }
+        document.getElementById('stCells').textContent='—';
+        document.getElementById('stHidden').textContent='—';
+        return;
+      }
+
+      // 격자 집계: 칸별로 "방문한 서로 다른 세션 수"를 셈(세션ID는 셈에만 쓰고 저장 안 하는 모델과 동일)
+      const cw=Math.max(8,Math.round(w*CELL_FRAC)), cols=Math.ceil(w/cw), rows=Math.ceil(h/cw);
+      const cellSet={};  // "cx_cy" -> Set(sessionIdx)
+      sessions.forEach((p,si)=>{ for(const pt of p){ const cx=Math.floor(pt[0]*w/cw), cy=Math.floor(pt[1]*h/cw); const k=cx+'_'+cy; (cellSet[k]||(cellSet[k]=new Set())).add(si); } });
+      let maxC=1, shown=0, hidden=0;
+      for(const k in cellSet){ maxC=Math.max(maxC,cellSet[k].size); }
+      for(const k in cellSet){
+        const c=cellSet[k].size;
+        const [cx,cy]=k.split('_').map(Number);
+        if(c<thresh){ hidden++; continue; }
+        shown++;
+        const [r,g,b]=gradAt((c-1)/Math.max(1,maxC-1));
+        ctx.fillStyle=`rgba(${r},${g},${b},0.62)`;
+        roundRect(ctx, cx*cw+1.5, cy*cw+1.5, cw-3, cw-3, 4); ctx.fill();
+      }
+      document.getElementById('stCells').textContent=shown;
+      document.getElementById('stHidden').textContent=hidden;
+    }
+    function roundRect(ctx,x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+
+    function setMode(m){
+      mode=m;
+      document.querySelectorAll('#toggle button').forEach(b=>b.classList.toggle('on', b.dataset.mode===m));
+      const v=document.getElementById('verdict'), vt=document.getElementById('verdictText');
+      v.className='verdict '+m;
+      v.querySelector('.tag').textContent = m==='raw'?'위험':'안전';
+      vt.textContent = m==='raw'
+        ? '개인별 이동 경로가 그대로 남습니다 — 가명이어도 "한 사람의 동선"이라 개인정보. 수집하려면 본인 동의가 필요합니다.'
+        : '칸별 인원수만 남습니다 — 누가 어떻게 움직였는지 복원 불가. 익명 통계라 동의 없이도 안전합니다.';
+      document.getElementById('threshWrap').style.opacity = m==='grid'?1:.35;
+      draw();
+    }
+
+    document.getElementById('toggle').addEventListener('click', e=>{ const b=e.target.closest('button'); if(b) setMode(b.dataset.mode); });
+    document.getElementById('thresh').addEventListener('input', e=>{ thresh=+e.target.value; document.getElementById('threshVal').textContent=thresh; if(mode==='grid') draw(); });
+    window.addEventListener('resize', draw);
+
+    (function(){
+      sessions = makeSessions();
+      document.getElementById('stSessions').textContent = sessions.length;
+      const img=document.getElementById('map');
+      img.onload=()=>{ natW=img.naturalWidth; natH=img.naturalHeight; setMode('grid'); };
+      img.onerror=()=>{ document.querySelector('.mapwrap').innerHTML='<p style="padding:30px;color:#6b7280">약도 이미지를 불러올 수 없어요.</p>'; };
+      img.src=IMG;
+    })();
+  </script>
+</body>
+</html>

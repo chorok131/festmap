@@ -68,6 +68,19 @@
     .cta a { display:inline-block; background:#fff; color:var(--blue); font-weight:700; text-decoration:none; padding:11px 22px; border-radius:10px; }
 
     footer { border-top: 1px solid var(--line); padding: 28px 0 48px; color: var(--muted); font-size: 13px; text-align: center; }
+
+    /* 히어로 실시간 위치 예시 */
+    .demoSec { padding: 22px 0 4px; }
+    .demoFrame { position: relative; border-radius: 16px; overflow: hidden; border: 1px solid var(--line); background: #f3f4f6; box-shadow: 0 6px 24px rgba(0,0,0,.08); }
+    .demoFrame img { width: 100%; display: block; }
+    .demoBadge { position: absolute; top: 11px; left: 11px; display: flex; align-items: center; gap: 6px; background: rgba(17,24,39,.78); color: #fff; font-size: 11.5px; font-weight: 700; padding: 5px 11px; border-radius: 20px; backdrop-filter: blur(4px); }
+    .demoBadge .dotpulse { width: 7px; height: 7px; border-radius: 50%; background: #ef4444; animation: pulse 1.4s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.35;transform:scale(1.5)} }
+    .me { position: absolute; left: 0; top: 0; transform: translate(-50%, -50%); pointer-events: none; will-change: left, top; }
+    .me .dot { width: 16px; height: 16px; border-radius: 50%; background: var(--blue); border: 2.5px solid #fff; box-shadow: 0 0 0 2px rgba(37,99,235,.3), 0 2px 6px rgba(0,0,0,.35); position: relative; z-index: 2; }
+    .me .cone { position: absolute; left: 50%; top: 50%; width: 96px; height: 96px; margin: -48px 0 0 -48px; transform-origin: 50% 50%; z-index: 1; }
+    .demoCap { font-size: 13.5px; color: var(--muted); margin: 12px 2px 0; }
+    .demoCap b { color: #374151; }
   </style>
 </head>
 <body>
@@ -80,6 +93,15 @@
   </header>
 
   <main class="wrap">
+    <section class="demoSec">
+      <div class="demoFrame" id="demoFrame">
+        <img id="demoMap" alt="서울숲 정원박람회 약도 위 실시간 내 위치 예시" />
+        <div class="me" id="me"><div class="cone" id="cone"></div><div class="dot"></div></div>
+        <span class="demoBadge"><span class="dotpulse"></span>실시간 위치 예시</span>
+      </div>
+      <p class="demoCap">행사장에서 <b>"내 위치"</b>를 누르면, 약도 위에 내 위치(파란 점)와 바라보는 방향이 이렇게 실시간으로 움직입니다. — 서울숲 정원박람회 약도</p>
+    </section>
+
     <section>
       <h2>행사 지도</h2>
       <p class="sub">행사장 안에서 아래 지도를 열고 "내 위치"를 누르면 약도 위에 현재 위치가 표시됩니다.</p>
@@ -139,6 +161,60 @@
         }).join('');
       })
       .catch(() => { document.getElementById('empty').textContent = '행사 목록을 불러오지 못했습니다.'; });
+
+    // ── 히어로 실시간 위치 예시: 약도 위에서 파란 점이 방향과 함께 움직이는 데모 ──
+    (function () {
+      const frame = document.getElementById('demoFrame');
+      const img = document.getElementById('demoMap');
+      const me = document.getElementById('me');
+      const cone = document.getElementById('cone');
+      if (!frame || !img) return;
+
+      // 부채꼴(바라보는 방향): 오른쪽(+x, heading 0)을 기본으로 — 이동 방향에 맞춰 회전
+      const r = 46, half = 26 * Math.PI / 180;
+      const x1 = (48 + r * Math.cos(-half)).toFixed(1), y1 = (48 + r * Math.sin(-half)).toFixed(1);
+      const x2 = (48 + r * Math.cos(half)).toFixed(1), y2 = (48 + r * Math.sin(half)).toFixed(1);
+      cone.innerHTML = `<svg width="96" height="96"><defs><radialGradient id="cg" cx="50%" cy="50%" r="50%">
+        <stop offset="0%" stop-color="#3b82f6" stop-opacity="0.55"/><stop offset="100%" stop-color="#3b82f6" stop-opacity="0"/></radialGradient></defs>
+        <path d="M48,48 L${x1},${y1} A${r},${r} 0 0 1 ${x2},${y2} Z" fill="url(#cg)"/></svg>`;
+
+      // 약도 위를 한 바퀴 도는 경로(분수 좌표) — 주요 구역을 훑는 산책 동선
+      const PATH = [[0.20,0.56],[0.31,0.47],[0.43,0.50],[0.53,0.37],[0.65,0.43],[0.71,0.59],[0.58,0.67],[0.46,0.71],[0.34,0.63],[0.24,0.66]];
+      const SEG_MS = 1700;           // 점 사이 이동 시간
+      let i = 0, t0 = 0, headingDeg = 0, raf = null;
+
+      function lerp(a, b, f) { return a + (b - a) * f; }
+      function ease(f) { return f < 0.5 ? 2*f*f : 1 - Math.pow(-2*f+2, 2)/2; }   // easeInOutQuad
+
+      function step(ts) {
+        if (!t0) t0 = ts;
+        const w = frame.clientWidth, h = frame.clientHeight;
+        let f = (ts - t0) / SEG_MS; if (f >= 1) { f = 0; t0 = ts; i = (i + 1) % PATH.length; }
+        const a = PATH[i], b = PATH[(i + 1) % PATH.length], e = ease(f);
+        const fx = lerp(a[0], b[0], e), fy = lerp(a[1], b[1], e);
+        me.style.left = (fx * w) + 'px';
+        me.style.top = (fy * h) + 'px';
+        // 진행 방향으로 부채꼴 회전(부드럽게)
+        const dx = (b[0] - a[0]) * w, dy = (b[1] - a[1]) * h;
+        if (dx || dy) {
+          let target = Math.atan2(dy, dx) * 180 / Math.PI, d = ((target - headingDeg + 540) % 360) - 180;
+          headingDeg += d * 0.12;
+          cone.style.transform = `rotate(${headingDeg}deg)`;
+        }
+        raf = requestAnimationFrame(step);
+      }
+
+      img.onload = () => { me.style.opacity = 1; cancelAnimationFrame(raf); t0 = 0; raf = requestAnimationFrame(step); };
+      img.onerror = () => { frame.style.display = 'none'; };  // 약도 못 불러오면 데모만 숨김(나머지 페이지는 정상)
+      me.style.opacity = 0;
+      // 뷰어와 같은 약도 이미지 → 클릭해서 들어갈 때 캐시 예열됨
+      img.src = 'events/seoulforest-2026/map_labeled.png';
+      // 탭이 안 보일 땐 애니메이션 정지(배터리 절약)
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden) cancelAnimationFrame(raf);
+        else { t0 = 0; raf = requestAnimationFrame(step); }
+      });
+    })();
 
     // 오프라인 대비: 랜딩만 들어와도 서비스워커가 행사 약도까지 미리 캐시
     if ('serviceWorker' in navigator) {

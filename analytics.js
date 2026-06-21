@@ -24,8 +24,9 @@
   function kstDate() { return new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10); }
 
   var cfg = global.FESTMAP_FB || null;   // 공개 설정(보안은 Firestore 규칙이 담당)
-  var mode = 'counts';                   // 'counts' | 'full' | 'off'
-  var pingMs = 180000;                    // full 모드 좌표 샘플 간격(기본 180초). georef.json sampleSec로 조절.
+  var mode = 'counts';                   // 'counts'(숫자만) | 'heat'(익명 격자) | 'full'(개인경로,동의필요) | 'off'
+  var pingMs = 180000;                    // 좌표 샘플 간격(기본 180초). georef.json sampleSec로 조절.
+  var cellPx = 0;                         // 격자 칸 크기(자연 픽셀). heat 렌더러가 위치 환산에 사용.
   var db = null, ready = false, loading = false;
   var session = null, flushTimer = null, lastPing = 0;
 
@@ -60,7 +61,7 @@
   }
 
   function ensureSession(slug) {
-    if (!session) session = { slug: slug, opened: false, located: false, firstTs: Date.now(), lastTs: Date.now(), path: [] };
+    if (!session) session = { slug: slug, opened: false, located: false, firstTs: Date.now(), lastTs: Date.now(), path: [], cells: {}, sentCells: {} };
     return session;
   }
   function scheduleFlush() {
@@ -72,24 +73,38 @@
     loadFirebase(function () {
       if (!ready) return;
       var s = session, FV = global.firebase.firestore.FieldValue;
-      // 1) 원천 세션 문서(읽기 차단). 좌표는 full 모드에서만.
+      // 1) 원천 세션 문서(읽기 차단). 좌표 경로는 full(동의필요) 모드에서만. heat 모드는 좌표 저장 안 함.
       var doc = { slug: s.slug, opened: s.opened, located: s.located, firstTs: s.firstTs, lastTs: s.lastTs, updated: FV.serverTimestamp() };
       if (mode === 'full') doc.path = s.path;
       db.collection('events').doc(s.slug).collection('sessions').doc(sid()).set(doc, { merge: true }).catch(function () {});
-      // 2) 공개 가능한 일별 집계(숫자만). 세션당 1회씩만 증가.
+      // 2) 공개 가능한 일별 집계. 세션당 1회씩만 증가.
       var day = kstDate(), daily = db.collection('events').doc(s.slug).collection('daily').doc(day);
       var inc = {};
       if (s.opened && !sessionStorage.getItem('festmap.cnt.o.' + s.slug)) { inc.opens = FV.increment(1); sessionStorage.setItem('festmap.cnt.o.' + s.slug, '1'); }
       if (s.located && !sessionStorage.getItem('festmap.cnt.l.' + s.slug)) { inc.locates = FV.increment(1); sessionStorage.setItem('festmap.cnt.l.' + s.slug, '1'); }
+      // 3) 익명 격자 히트맵(heat). [개인정보 4원칙] 칸 단위 카운터만 증가:
+      //    ① 칸을 크게(약도 픽셀 cellPx) ② 세션ID를 서버에 안 남김 — 카운터만 +1
+      //    ③ 적은 칸은 렌더 시 숨김(임계값) ④ 일(day) 단위만, 정밀 시각 안 붙임 → 개인 경로 복원 불가.
+      if (mode === 'heat' || mode === 'full') {
+        var newCells = 0;
+        for (var key in s.cells) {
+          if (s.cells[key] && !s.sentCells[key]) { inc['h_' + key] = FV.increment(1); s.sentCells[key] = 1; newCells++; }
+        }
+        if (newCells) {
+          if (cellPx) inc.hc = cellPx;   // 칸 크기(자연 픽셀) — 렌더러 환산용(idempotent)
+          if (!sessionStorage.getItem('festmap.cnt.h.' + s.slug)) { inc.hsessions = FV.increment(1); sessionStorage.setItem('festmap.cnt.h.' + s.slug, '1'); }
+        }
+      }
       if (Object.keys(inc).length) { inc.day = day; daily.set(inc, { merge: true }).catch(function () {}); }
     });
   }
 
   var Festmap = {
-    // e.html이 georef 값을 넘겨줌: mode='counts'(기본)|'full'|'off', sampleSec=좌표 샘플 간격(초)
+    // e.html이 georef 값을 넘겨줌: mode='counts'(기본)|'heat'|'full'|'off', sampleSec=샘플간격(초), cellPx=격자 칸 크기(자연 픽셀)
     setConfig: function (o) {
       if (o && o.mode) mode = o.mode;
       if (o && o.sampleSec > 0) pingMs = o.sampleSec * 1000;
+      if (o && o.cellPx > 0) cellPx = o.cellPx;
     },
     track: function (type, payload) {
       var rec = { t: type, sid: sid(), ts: Date.now() };
@@ -108,10 +123,15 @@
       lastPing = now;
       var rec = { t: 'ping', sid: sid(), ts: now };
       for (var k in (payload || {})) rec[k] = payload[k];
-      localBuf(rec);
-      if (session && mode === 'full' && payload && payload.lat != null) {
-        session.path.push([Math.round((now - session.firstTs) / 1000), payload.lat, payload.lng]);
-        session.lastTs = now; scheduleFlush();
+      localBuf(rec);   // localBuf는 이 기기 localStorage에만(전송 X). 서버엔 heat=칸, full=경로만 나감.
+      if (session && payload && (mode === 'heat' || mode === 'full')) {
+        // 익명 격자: 어느 칸에 있었는지만 세션 내 중복 제거하여 모음(좌표는 서버로 안 감)
+        if (payload.cell) { session.cells[payload.cell[0] + '_' + payload.cell[1]] = true; session.lastTs = now; scheduleFlush(); }
+        // 개인 경로(full, 동의 필요): 상대시각+좌표 누적
+        if (mode === 'full' && payload.lat != null) {
+          session.path.push([Math.round((now - session.firstTs) / 1000), payload.lat, payload.lng]);
+          session.lastTs = now; scheduleFlush();
+        }
       }
     }
   };

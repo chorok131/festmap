@@ -202,6 +202,7 @@
     let favorites = [], favLayer = L.layerGroup();  // 즐겨찾기(localStorage 저장)
     let sharedXY = null, sharedMarker = null;       // 공유받은 위치(?at=)
     let PPM0 = 1;                          // 행사 중심의 픽셀/미터(거리 환산)
+    let CELL_PX = 0;                       // 익명 격자 칸 크기(자연 픽셀). heat 모드에서만 사용.
 
     function solveLinear(A, b) {
       const n = b.length, M = A.map((r, i) => r.concat([b[i]]));
@@ -268,8 +269,9 @@
       lastGPS = { lat: lat, lng: lng };
       lastImg = { px: px, py: py };
       updateSharedDist();
-      // [D의 씨앗] 동선/체류시간 리포트의 원천. 지금은 외부 전송 없음(analytics.js 참고).
-      Festmap.ping({ event: SLUG, lat: +lat.toFixed(6), lng: +lng.toFixed(6), acc: Math.round(acc || 0), inside: !meOutside });
+      // [D의 씨앗] 동선·체류 리포트의 원천. heat 모드면 좌표 대신 "격자 칸"으로 뭉개 익명 집계(analytics.js 참고).
+      const cell = meOutside ? null : [Math.floor(px / CELL_PX), Math.floor(py / CELL_PX)];
+      Festmap.ping({ event: SLUG, lat: +lat.toFixed(6), lng: +lng.toFixed(6), acc: Math.round(acc || 0), inside: !meOutside, cell: cell });
 
       // 목표 위치를 지수 평활(GPS 노이즈 완화)
       if (!meTgt) { meTgt = { px: px, py: py, acc: accPx }; meCur = { px: px, py: py, acc: accPx }; }
@@ -393,6 +395,9 @@
       const p0 = toPixel(refLat, refLng), p1 = toPixel(refLat + 0.001, refLng);
       northAngle = Math.atan2(p1[1] - p0[1], p1[0] - p0[0]);
       PPM0 = pxPerMeter(refLat, refLng);
+      // 익명 격자 칸 크기: 미터→약도 픽셀. 칸이 클수록 익명성↑(기본 25m). heat 모드에서만 좌표가 칸으로 뭉개져 수집됨.
+      CELL_PX = Math.max(1, Math.round((g.cellM || 25) * PPM0));
+      Festmap.setConfig({ cellPx: CELL_PX });   // 렌더러가 위치 환산에 쓰도록 daily 문서에 1회 기록
       setStatus('"내 위치"를 눌러 현재 위치를 약도 위에 표시하세요. (위치·나침반 권한 허용 필요)');
       Festmap.track('open', { event: SLUG });
       pinLayer.addTo(map); favLayer.addTo(map); labelLayer.addTo(map);   // 레이어는 항상

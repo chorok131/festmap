@@ -1,6 +1,7 @@
 {
   "event": "서울숲 정원박람회",
-  "track": "counts",
+  "track": "heat",
+  "cellM": 25,
   "baseMap": "OSM",
   "image": "map_labeled.png",
   "transform": "similarity",
