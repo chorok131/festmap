@@ -37,6 +37,8 @@
     #eventMenu .row.cur { background: #eff6ff; font-weight: 700; }
     #eventMenu .row .sub { display: block; color: #9ca3af; font-size: 12px; margin-top: 2px; }
     #eventMenu .row.add { color: #2563eb; font-weight: 600; }
+    #eventMenu .row.make { background: #eff6ff; color: #1e3a8a; font-weight: 700; border-radius: 0 0 12px 12px; }
+    #eventMenu .row.make .sub { color: #2563eb; font-weight: 500; }
     #editbar { position: absolute; z-index: 1001; top: 56px; left: 10px; right: 10px; display: none;
       align-items: center; gap: 8px; background: #fef3c7; border: 1px solid #f59e0b; border-radius: 10px;
       padding: 8px 10px; font-size: 13px; box-shadow: 0 2px 8px rgba(0,0,0,.15); }
@@ -117,7 +119,6 @@
     <a id="home" href="index.html" title="행사 목록">‹</a>
     <button id="title">축제지도 ▾</button>
     <span class="sp"></span>
-    <button id="poiToggle" style="display:none">🔍 찾기</button>
     <button id="go">📤 위치 공유</button>
   </div>
   <div id="eventMenu"></div>
@@ -164,7 +165,7 @@
     const EDIT = new URLSearchParams(location.search).get('edit') === '1';   // ?edit=1 → 사이트 추가 편집 모드
     let editCat = 'garden';
 
-    const map = L.map('map', { crs: L.CRS.Simple, minZoom: -6, maxZoom: 4, zoomControl: true, attributionControl: false, fadeAnimation: true, maxBoundsViscosity: 1.0 });
+    const map = L.map('map', { crs: L.CRS.Simple, minZoom: -6, maxZoom: 4, zoomControl: false, attributionControl: false, fadeAnimation: true, maxBoundsViscosity: 1.0 });
     const statusEl = document.getElementById('status');
     const setStatus = (t, warn) => { statusEl.textContent = t; statusEl.classList.toggle('warn', !!warn); };
 
@@ -179,7 +180,9 @@
       eventMenu.innerHTML = evs.map(ev =>
         `<a class="row${ev.slug === SLUG ? ' cur' : ''}" href="e.html?event=${encodeURIComponent(ev.slug)}">
            ${ev.name}<span class="sub">${[ev.venue, STBADGE[ev.status] || ''].filter(Boolean).join(' · ')}</span></a>`
-      ).join('') + `<a class="row add" href="index.html">＋ 행사 목록 / 새 행사</a>`;
+      ).join('')
+        + `<a class="row add" href="index.html">＋ 행사 목록 / 새 행사</a>`
+        + `<a class="row make" href="apply.html">✦ 우리 행사도 이렇게 만들고 싶다면<span class="sub">약도만 주시면 실시간 위치 지도 제작 — 제작 문의 ▸</span></a>`;
     }
     document.getElementById('title').addEventListener('click', async (e) => {
       e.stopPropagation();
@@ -454,7 +457,6 @@
       return '<svg class="ic-svg" viewBox="0 0 24 24" width="' + s + '" height="' + s + '" fill="' + (filled ? 'currentColor' : 'none') + '" stroke="' + (filled ? 'none' : 'currentColor') + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + (ICONS[name] || ICONS.pin) + '</svg>';
     }
     // 정적 UI 버튼/바 아이콘 적용
-    document.getElementById('poiToggle').innerHTML = svgIcon('search') + '<span>찾기</span>';
     document.getElementById('go').innerHTML = svgIcon('share') + '<span>위치 공유</span>';
     (() => { const ns = document.querySelector('#navbar > span'); if (ns) ns.innerHTML = svgIcon('pin') + ' <b id="navName">목표</b>'; })();
     (() => { const eb = document.querySelector('#editbar > span'); if (eb) eb.innerHTML = svgIcon('pencil', 15); })();
@@ -478,7 +480,6 @@
       POIS = (data.pois || []).filter(p => p && p.x != null && p.y != null);
       if (!POIS.length) return;
       pinLayer.addTo(map);
-      document.getElementById('poiToggle').style.display = '';
       buildChips();
       bindSearch();
       // 기본은 아무 카테고리도 켜지 않음(사용자가 칩을 눌러 표시)
@@ -680,10 +681,6 @@
     document.getElementById('navClose').onclick = () => {
       sharedXY = null; document.getElementById('navbar').classList.remove('on');
       if (sharedMarker) { map.removeLayer(sharedMarker); sharedMarker = null; }
-    };
-
-    document.getElementById('poiToggle').onclick = () => {
-      document.getElementById('poibar').classList.toggle('on');
     };
 
     // ───────────── 내 위치 공유 (라이트: 좌표를 링크에 담음, 서버 불필요) ─────────────
