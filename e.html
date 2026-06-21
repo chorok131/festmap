@@ -155,6 +155,23 @@
         if (s) { shown = true; s.textContent = '이 브라우저에서는 지도를 표시할 수 없어요. 크롬/사파리 최신 버전으로 열어주세요.'; s.className = 'warn'; }
       });
     })();
+
+    // 페이지 전체 줌 잠금: 상단바·편의시설 칩은 크기 고정, 지도만 확대/축소되게.
+    // iOS 사파리는 viewport user-scalable=no 를 무시하므로 제스처 줌을 직접 차단.
+    // (지도 Leaflet은 touch 이벤트로 자체 핀치 줌 → 이 차단의 영향 없음)
+    (function () {
+      ['gesturestart', 'gesturechange', 'gestureend'].forEach(function (ev) {
+        document.addEventListener(ev, function (e) { e.preventDefault(); }, { passive: false });
+      });
+      // 지도 밖(상단바 등)에서의 더블탭 확대 차단. 지도 위 더블탭 줌은 Leaflet이 처리.
+      var lastTap = 0;
+      document.addEventListener('touchend', function (e) {
+        var now = Date.now();
+        var inMap = e.target.closest && e.target.closest('#map');
+        if (now - lastTap <= 320 && !inMap) e.preventDefault();
+        lastTap = now;
+      }, { passive: false });
+    })();
   </script>
   <script>
     const LOCATE_ZOOM = 1;
