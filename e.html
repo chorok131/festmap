@@ -160,15 +160,24 @@
     // iOS 사파리는 viewport user-scalable=no 를 무시하므로 제스처 줌을 직접 차단.
     // (지도 Leaflet은 touch 이벤트로 자체 핀치 줌 → 이 차단의 영향 없음)
     (function () {
+      var inMap = function (t) { return t && t.closest && t.closest('#map'); };
+      // ① iOS 사파리 제스처 줌 차단(상·하단 어디서나)
       ['gesturestart', 'gesturechange', 'gestureend'].forEach(function (ev) {
         document.addEventListener(ev, function (e) { e.preventDefault(); }, { passive: false });
       });
-      // 지도 밖(상단바 등)에서의 더블탭 확대 차단. 지도 위 더블탭 줌은 Leaflet이 처리.
+      // ② 지도 밖(상단바·내위치 버튼·하단 등)에서 두 손가락 동작 자체를 차단 → 페이지 핀치 줌 원천 봉쇄.
+      //    지도 위에선 막지 않음(Leaflet이 핀치 줌 처리). 한 손가락 스크롤(칩 가로 스크롤 등)은 그대로.
+      document.addEventListener('touchstart', function (e) {
+        if (e.touches.length > 1 && !inMap(e.target)) e.preventDefault();
+      }, { passive: false });
+      document.addEventListener('touchmove', function (e) {
+        if (e.touches.length > 1 && !inMap(e.target)) e.preventDefault();
+      }, { passive: false });
+      // ③ 지도 밖 더블탭 확대 차단. 지도 위 더블탭 줌은 Leaflet이 처리.
       var lastTap = 0;
       document.addEventListener('touchend', function (e) {
         var now = Date.now();
-        var inMap = e.target.closest && e.target.closest('#map');
-        if (now - lastTap <= 320 && !inMap) e.preventDefault();
+        if (now - lastTap <= 320 && !inMap(e.target)) e.preventDefault();
         lastTap = now;
       }, { passive: false });
     })();
