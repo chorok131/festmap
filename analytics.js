@@ -25,6 +25,7 @@
 
   var cfg = global.FESTMAP_FB || null;   // 공개 설정(보안은 Firestore 규칙이 담당)
   var mode = 'counts';                   // 'counts' | 'full' | 'off'
+  var pingMs = 180000;                    // full 모드 좌표 샘플 간격(기본 180초). georef.json sampleSec로 조절.
   var db = null, ready = false, loading = false;
   var session = null, flushTimer = null, lastPing = 0;
 
@@ -85,8 +86,11 @@
   }
 
   var Festmap = {
-    // e.html이 georef의 track 모드를 넘겨줌: 'counts'(기본) | 'full' | 'off'
-    setConfig: function (o) { if (o && o.mode) mode = o.mode; },
+    // e.html이 georef 값을 넘겨줌: mode='counts'(기본)|'full'|'off', sampleSec=좌표 샘플 간격(초)
+    setConfig: function (o) {
+      if (o && o.mode) mode = o.mode;
+      if (o && o.sampleSec > 0) pingMs = o.sampleSec * 1000;
+    },
     track: function (type, payload) {
       var rec = { t: type, sid: sid(), ts: Date.now() };
       for (var k in (payload || {})) rec[k] = payload[k];
@@ -100,7 +104,7 @@
     },
     ping: function (payload, minMs) {
       var now = Date.now();
-      if (now - lastPing < (minMs || 10000)) return;
+      if (now - lastPing < (minMs || pingMs)) return;
       lastPing = now;
       var rec = { t: 'ping', sid: sid(), ts: now };
       for (var k in (payload || {})) rec[k] = payload[k];

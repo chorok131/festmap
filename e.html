@@ -369,7 +369,7 @@
       }
       document.title = (g.event || '축제지도') + ' · 현위치 지도';
       document.getElementById('title').textContent = (g.event || '축제지도') + ' ▾';
-      Festmap.setConfig({ mode: g.track || 'counts' });   // 행사별: 'counts'(기본) | 'full'(동선) | 'off'
+      Festmap.setConfig({ mode: g.track || 'counts', sampleSec: g.sampleSec });   // track: 'counts'(기본)|'full'(동선)|'off', sampleSec: full 좌표 간격(초, 기본 180)
       const imgUrl = BASE + g.image;
       const loaded = await new Promise((res) => {
         const im = new Image();

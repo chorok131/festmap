@@ -1,7 +1,7 @@
 // 축제지도 서비스워커 — 오프라인/약신호 대비 (stale-while-revalidate)
 // 핵심: GPS는 위성이라 인터넷 불필요 → 약도·코드만 캐시돼 있으면 행사장 통신 마비에도 전부 동작.
 // 구조 변경 시 이 버전을 올리면(activate에서) 옛 캐시가 자동 폐기됨 → 기존 사용자 화면 고착 방지
-const CACHE = 'festmap-v22';
+const CACHE = 'festmap-v24';
 const CORE = [   // 앱 셸 (Leaflet은 자체 호스팅 → 외부 CDN 의존 없음)
   './', './index.html', './e.html', './apply.html', './apply-good.png', './apply-bad.png', './report.html', './qr.html',
   './analytics.js', './firebase-config.js',
@@ -16,7 +16,10 @@ self.addEventListener('install', (e) => {
   self.skipWaiting();
   e.waitUntil((async () => {
     const c = await caches.open(CACHE);
-    await c.addAll(CORE).catch(() => {});
+    // 프리캐시는 HTTP 캐시를 우회해 항상 네트워크 최신본을 받음(버전 올렸는데 옛 파일이 남는 것 방지)
+    await Promise.all(CORE.map((u) =>
+      fetch(u, { cache: 'reload' }).then((r) => { if (r && r.ok) return c.put(u, r); }).catch(() => {})
+    ));
     try {
       const { events } = await (await fetch('./events/events.json')).json();
       for (const ev of (events || [])) {
