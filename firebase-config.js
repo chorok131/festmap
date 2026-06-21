@@ -5,8 +5,10 @@
  * 켜기: Firebase 콘솔 → 프로젝트 설정 → 웹앱 config 를 아래에 붙여넣기.
  */
 window.FESTMAP_FB = {
-  // apiKey: "AIza...",
-  // authDomain: "festmap-xxxx.firebaseapp.com",
-  // projectId: "festmap-xxxx",
-  // appId: "1:...:web:..."
+  apiKey: "AIzaSyDSU8xLc0wU3S3bRgJccPjfQHQQ3UplbRA",
+  authDomain: "minimap-f814b.firebaseapp.com",
+  projectId: "minimap-f814b",
+  storageBucket: "minimap-f814b.firebasestorage.app",
+  messagingSenderId: "130579531810",
+  appId: "1:130579531810:web:24ef5f7c8eaa7ae59ee27b"
 };
