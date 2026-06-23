@@ -5,6 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>축제지도 · 현위치 보기</title>
   <meta name="description" content="행사 약도 위에서 내 현재 위치와 방향을 실시간으로 보여주는 길찾기 지도." />
+  <!-- 공유 카드(카톡·SNS 미리보기) — "내 위치 공유" 링크가 행사장 밖 새 사람에게 닿는 바이럴 표면 -->
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="minimap.kr" />
+  <meta property="og:title" content="행사장 약도 위 실시간 내 위치 · 축제지도" />
+  <meta property="og:description" content="약도 위에서 내 위치와 방향을 실시간으로. 앱 설치 없이 링크 하나로 — minimap.kr" />
+  <meta property="og:image" content="https://minimap.kr/icon-512.png" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="행사장 약도 위 실시간 내 위치 · 축제지도" />
+  <meta name="twitter:description" content="약도 위에서 내 위치와 방향을 실시간으로. 앱 없이 링크 하나로 — minimap.kr" />
+  <meta name="twitter:image" content="https://minimap.kr/icon-512.png" />
   <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#2563eb" />
   <link rel="apple-touch-icon" href="apple-touch-icon.png" />
@@ -119,7 +129,7 @@
     <a id="home" href="index.html" title="행사 목록">‹</a>
     <button id="title">축제지도 ▾</button>
     <span class="sp"></span>
-    <button id="go">📤 위치 공유</button>
+    <button id="go">📤 내 위치 공유하기</button>
   </div>
   <div id="eventMenu"></div>
   <div id="editbar">
@@ -483,7 +493,7 @@
       return '<svg class="ic-svg" viewBox="0 0 24 24" width="' + s + '" height="' + s + '" fill="' + (filled ? 'currentColor' : 'none') + '" stroke="' + (filled ? 'none' : 'currentColor') + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + (ICONS[name] || ICONS.pin) + '</svg>';
     }
     // 정적 UI 버튼/바 아이콘 적용
-    document.getElementById('go').innerHTML = svgIcon('share') + '<span>위치 공유</span>';
+    document.getElementById('go').innerHTML = svgIcon('share') + '<span>내 위치 공유하기</span>';
     (() => { const ns = document.querySelector('#navbar > span'); if (ns) ns.innerHTML = svgIcon('pin') + ' <b id="navName">목표</b>'; })();
     (() => { const eb = document.querySelector('#editbar > span'); if (eb) eb.innerHTML = svgIcon('pencil', 15); })();
     (() => { const ex = document.getElementById('editExport'); if (ex) ex.innerHTML = svgIcon('download', 15) + '<span>내보내기</span>'; })();
@@ -721,7 +731,8 @@
         + '?event=' + encodeURIComponent(SLUG)
         + '&at=' + lastGPS.lat.toFixed(6) + ',' + lastGPS.lng.toFixed(6)
         + '&t=' + Date.now();
-      const text = '내 위치 — ' + (document.getElementById('title').textContent || '축제지도');
+      const evName = (document.getElementById('title').textContent || '축제지도').replace(/\s*▾\s*$/, '');
+      const text = '📍 내 위치 — ' + evName + ' · 약도 위 실시간 지도 minimap.kr';
       Festmap.track('share_loc', { event: SLUG });
       if (navigator.share) {
         navigator.share({ title: '내 위치', text, url }).catch(() => {});
