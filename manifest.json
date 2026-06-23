@@ -1,6 +1,6 @@
 {
-  "name": "축제지도 · 행사장 현위치 지도",
-  "short_name": "축제지도",
+  "name": "미니맵 — 실시간 위치 약도",
+  "short_name": "미니맵",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
