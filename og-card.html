@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>미니맵 OG 카드</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html,body { background:#eff6ff; }
+</style>
+</head>
+<body>
+<!-- 1200×630 소셜 공유 카드 (Claude Design "미니맵 OG카드"에서 재구성) -->
+<div style="width:1200px; height:630px; position:relative; overflow:hidden; font-family:'Pretendard','Noto Sans KR',sans-serif; background:linear-gradient(135deg,#ffffff 0%,#eff6ff 100%);">
+
+  <!-- LEFT: text -->
+  <div style="position:absolute; left:0; top:0; width:576px; height:630px; display:flex; flex-direction:column; justify-content:center; padding:64px;">
+    <div style="display:flex; align-items:center; gap:10px; margin-bottom:26px;">
+      <div style="width:26px; height:26px; border-radius:50%; background:#2563eb; position:relative; box-shadow:0 0 0 5px rgba(37,99,235,.16);">
+        <div style="position:absolute; inset:7px; border-radius:50%; background:#fff;"></div>
+      </div>
+      <span style="font-size:27px; font-weight:800; color:#2563eb; letter-spacing:-.01em;">미니맵</span>
+    </div>
+
+    <h1 style="font-size:55px; line-height:1.2; font-weight:800; color:#111827; letter-spacing:-.03em; word-break:keep-all;">약도 위에 내 위치가<br>실시간으로</h1>
+
+    <p style="margin-top:24px; font-size:25px; font-weight:500; color:#6b7280; letter-spacing:-.01em;">앱 없이 링크 하나로 · 행사장 길찾기</p>
+
+    <div style="margin-top:40px; font-size:26px; font-weight:800; color:#2563eb; letter-spacing:-.01em;">minimap.kr</div>
+  </div>
+
+  <!-- RIGHT: map illustration -->
+  <div style="position:absolute; right:0; top:0; width:624px; height:630px;">
+    <svg viewBox="0 0 624 630" width="624" height="630" style="display:block;">
+      <defs>
+        <radialGradient id="fan" cx="50%" cy="100%" r="100%">
+          <stop offset="0%" stop-color="#2563eb" stop-opacity="0.42"></stop>
+          <stop offset="100%" stop-color="#2563eb" stop-opacity="0"></stop>
+        </radialGradient>
+        <filter id="pinShadow" x="-60%" y="-60%" width="220%" height="220%">
+          <feDropShadow dx="0" dy="6" stdDeviation="7" flood-color="#1e3a8a" flood-opacity="0.28"></feDropShadow>
+        </filter>
+        <clipPath id="cardClip"><rect x="40" y="56" width="544" height="518" rx="32"></rect></clipPath>
+      </defs>
+
+      <!-- map base card -->
+      <rect x="40" y="56" width="544" height="518" rx="32" fill="#f0f7ff"></rect>
+      <g clip-path="url(#cardClip)">
+
+      <!-- park green areas -->
+      <path d="M40 300 Q150 250 260 300 T540 280 L584 280 L584 574 L40 574 Z" fill="#d6f0d8"></path>
+      <ellipse cx="150" cy="180" rx="120" ry="86" fill="#cdeccf"></ellipse>
+      <ellipse cx="470" cy="170" rx="100" ry="74" fill="#d6f0d8"></ellipse>
+      <ellipse cx="300" cy="470" rx="170" ry="100" fill="#c3e7c6"></ellipse>
+
+      <!-- water pond -->
+      <ellipse cx="470" cy="420" rx="78" ry="52" fill="#bfdcfb"></ellipse>
+
+      <!-- curved path -->
+      <path d="M70 120 Q220 200 250 340 T470 540" fill="none" stroke="#ffffff" stroke-width="22" stroke-linecap="round"></path>
+      <path d="M70 120 Q220 200 250 340 T470 540" fill="none" stroke="#e7c98a" stroke-width="13" stroke-linecap="round" stroke-dasharray="2 20"></path>
+      <path d="M120 540 Q300 480 420 250 T560 130" fill="none" stroke="#ffffff" stroke-width="18" stroke-linecap="round"></path>
+
+      <!-- trees -->
+      <g>
+        <circle cx="110" cy="150" r="17" fill="#7cc47f"></circle><circle cx="190" cy="210" r="14" fill="#8ccd8f"></circle>
+        <circle cx="420" cy="140" r="16" fill="#7cc47f"></circle><circle cx="520" cy="200" r="13" fill="#8ccd8f"></circle>
+        <circle cx="250" cy="500" r="15" fill="#7cc47f"></circle><circle cx="380" cy="510" r="13" fill="#8ccd8f"></circle>
+      </g>
+
+      <!-- small POI pins -->
+      <!-- cafe -->
+      <g transform="translate(170,330)">
+        <path d="M0 -22 C13 -22 22 -12 22 0 C22 14 0 30 0 30 C0 30 -22 14 -22 0 C-22 -12 -13 -22 0 -22 Z" fill="#f59e0b"></path>
+        <circle cx="0" cy="-1" r="11" fill="#fff"></circle>
+        <path d="M-5 -6 h8 v6 a4 4 0 0 1 -8 0 Z M3 -5 h3 a2 2 0 0 1 0 4 h-3" fill="none" stroke="#f59e0b" stroke-width="2"></path>
+      </g>
+      <!-- restroom -->
+      <g transform="translate(360,300)">
+        <path d="M0 -22 C13 -22 22 -12 22 0 C22 14 0 30 0 30 C0 30 -22 14 -22 0 C-22 -12 -13 -22 0 -22 Z" fill="#10b981"></path>
+        <circle cx="0" cy="-1" r="11" fill="#fff"></circle>
+        <g fill="#10b981"><circle cx="-4" cy="-7" r="2.4"></circle><rect x="-6" y="-3" width="4" height="9" rx="2"></rect><circle cx="5" cy="-7" r="2.4"></circle><path d="M3 -3 h4 l1.6 7 h-7.2 Z"></path></g>
+      </g>
+      <!-- info -->
+      <g transform="translate(455,470)">
+        <path d="M0 -22 C13 -22 22 -12 22 0 C22 14 0 30 0 30 C0 30 -22 14 -22 0 C-22 -12 -13 -22 0 -22 Z" fill="#6366f1"></path>
+        <circle cx="0" cy="-1" r="11" fill="#fff"></circle>
+        <circle cx="0" cy="-6" r="2.2" fill="#6366f1"></circle><rect x="-1.8" y="-2" width="3.6" height="9" rx="1.8" fill="#6366f1"></rect>
+      </g>
+
+      </g><!-- /clip -->
+
+      <!-- HERO: my location + direction fan -->
+      <g transform="translate(290,330)">
+        <!-- direction fan pointing up -->
+        <path d="M0 0 L105 -178 A205 205 0 0 0 -105 -178 Z" fill="url(#fan)"></path>
+        <circle cx="0" cy="0" r="70" fill="#2563eb" opacity="0.08"></circle>
+        <g filter="url(#pinShadow)">
+          <circle cx="0" cy="0" r="26" fill="#2563eb" stroke="#ffffff" stroke-width="8"></circle>
+        </g>
+      </g>
+    </svg>
+  </div>
+</div>
+</body>
+</html>
