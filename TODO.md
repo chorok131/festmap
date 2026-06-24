@@ -3,6 +3,7 @@
 > 원칙: 저인풋·본업 안전. 능동 영업 없이 "발견 → 인바운드". 돈은 보너스, 즐거움이 연료.
 
 ## 🔴 지금 가치 큰 것 (코드 거의 0, 효과 큼)
+- [ ] **GitHub 사용자명 변경: chorok131 → 브랜드 핸들(예: minimapkr)** — 집에서. Settings→Account→Change username. 끝나면 저장소 URL·커밋 작성자 표시가 전부 브랜드로 바뀜(개인 핸들 노출 제거). apex 도메인이라 DNS/minimap.kr·CNAME은 그대로 작동. 변경 후 Claude가 로컬 remote 주소 + 커밋 user.name/email(중립)만 정리해주면 끝.
 - [ ] **네이버 서치어드바이저 + 구글 서치콘솔에 사이트 등록** (각 10분) — sitemap 제출. 한국인은 네이버에서 행사 지도 검색함. 발견 채널 자체.
 - [ ] **Firebase 켜서 집계 ON** — `ANALYTICS_SETUP.md` 따라 프로젝트 생성 + config + 보안규칙. 안 켜면 "몇 명 썼나"를 영영 모름 = 인바운드 증거 못 만듦.
 
