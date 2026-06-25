@@ -54,12 +54,14 @@
     #editbar { position: absolute; z-index: 1001; top: 56px; left: 10px; right: 10px; display: none;
       align-items: center; gap: 8px; background: #fef3c7; border: 1px solid #f59e0b; border-radius: 10px;
       padding: 8px 10px; font-size: 13px; box-shadow: 0 2px 8px rgba(0,0,0,.15); }
-    #editbar.on { display: flex; }
+    #editbar.on { display: flex; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    #editbar::-webkit-scrollbar { display: none; }
     #editbar select { border: 1px solid #d1d5db; border-radius: 6px; padding: 5px; font-size: 13px; max-width: 38vw; }
     #editbar .hint { color: #92400e; flex: 1; }
     #editSave { border: 0; border-radius: 8px; padding: 7px 12px; background: #2563eb; color: #fff; font-weight: 700; font-size: 13px; white-space: nowrap; }
     #editReset { border: 0; border-radius: 8px; padding: 7px 12px; background: #e5e7eb; color: #111; font-weight: 700; font-size: 13px; white-space: nowrap; }
     #editReport { border: 0; border-radius: 8px; padding: 7px 12px; background: #111827; color: #fff; font-weight: 700; font-size: 13px; white-space: nowrap; text-decoration: none; }
+    #editUndo { border: 0; border-radius: 8px; padding: 7px 12px; background: #e5e7eb; color: #111; font-weight: 700; font-size: 13px; white-space: nowrap; }
     #go { border: 0; border-radius: 8px; padding: 9px 14px; background: #2563eb; color: #fff; font-size: 14px; font-weight: 600; }
     #status { position: absolute; z-index: 1000; left: 10px; right: 10px; bottom: 10px;
       background: rgba(255,255,255,.95); padding: 8px 12px; border-radius: 10px; font-size: 12px; color: #555;
@@ -119,7 +121,7 @@
     #navbar .sp { flex: 1; }
     #navbar .dist { font-weight: 700; color: #93c5fd; }
     #navClose { border: 0; background: rgba(255,255,255,.15); color: #fff; border-radius: 8px; padding: 6px 10px; font-size: 13px; }
-    #go, #navClose, #editSave, #editReset, #editReport { display: inline-flex; align-items: center; gap: 5px; }
+    #go, #navClose, #editSave, #editReset, #editReport, #editUndo { display: inline-flex; align-items: center; gap: 5px; }
     #share { border: 0; border-radius: 8px; padding: 9px 11px; background: #e5e7eb; color: #111; font-size: 14px; }
     #toast { position: absolute; z-index: 1002; left: 50%; bottom: 92px; transform: translateX(-50%);
       background: #111827; color: #fff; padding: 10px 16px; border-radius: 20px; font-size: 13px;
@@ -139,6 +141,7 @@
     <span>✏️</span>
     <select id="editCat"></select>
     <span class="hint">빈 곳 탭 → 추가</span>
+    <button id="editUndo" title="실행취소 (Ctrl/⌘+Z)">↶ 실행취소</button>
     <button id="editSave">💾 저장</button>
     <button id="editReset">↩︎ 원본</button>
     <button id="editReport">📊 리포트</button>
@@ -207,6 +210,13 @@
     let LIVE_EDIT = false;                                                    // 셀프 편집(Firestore 저장본 사용) 활성 — georef "liveEdit":true
     const EDIT_PARAM = new URLSearchParams(location.search).get('edit');
     let editCat = 'garden';
+    let editHistory = [];                   // 편집 실행취소 스택(POIS 스냅샷). 추가/수정/삭제 직전에 push.
+    function pushHistory() { try { editHistory.push(JSON.stringify(POIS)); if (editHistory.length > 60) editHistory.shift(); } catch (e) {} }
+    function undoEdit() {
+      if (!EDIT || !editHistory.length) { toast('되돌릴 편집이 없어요'); return; }
+      try { POIS = JSON.parse(editHistory.pop()); } catch (e) { return; }
+      refreshPois(); map.closePopup(); toast('실행취소 ↩︎ (' + editHistory.length + '단계 남음)');
+    }
 
     const map = L.map('map', { crs: L.CRS.Simple, minZoom: -6, maxZoom: 4, zoomControl: false, attributionControl: false, fadeAnimation: true, maxBoundsViscosity: 1.0 });
     const statusEl = document.getElementById('status');
@@ -632,9 +642,11 @@
     window._editPoi = function (x, y) {
       const p = POIS.find(pp => pp.x === x && pp.y === y); if (!p) return;
       const n = prompt(p.cat === 'label' ? '글자 수정' : '장소 이름', p.name || ''); if (n == null) return;
+      pushHistory();
       p.name = n; refreshPois(); map.closePopup(); toast('수정됨 — 다 되면 💾 저장');
     };
     window._delPoi = function (x, y) {
+      pushHistory();
       POIS = POIS.filter(p => !(p.x === x && p.y === y));
       refreshPois(); map.closePopup(); toast('삭제됨 — 다 되면 💾 저장');
     };
@@ -654,6 +666,7 @@
         const ask = editCat === 'label' ? '지도에 넣을 글자' : ('추가할 ' + (CAT[editCat] || {}).label + ' 이름');
         const name = prompt(ask, '');
         if (!name) return;
+        pushHistory();
         POIS.push({ cat: editCat, name: name, x: x, y: y });
         refreshPois();
         toast('추가됨: ' + name);
@@ -683,6 +696,11 @@
       document.getElementById('editReport').onclick = () => {
         window.open('report.html?event=' + encodeURIComponent(SLUG) + '&key=' + encodeURIComponent(EDIT_PARAM), '_blank');
       };
+      // 실행취소: 버튼 + Ctrl/⌘+Z
+      document.getElementById('editUndo').onclick = undoEdit;
+      document.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && !e.shiftKey && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); undoEdit(); }
+      });
     }
 
     // ── 즐겨찾기 (localStorage에 저장, 여러 개) ──
