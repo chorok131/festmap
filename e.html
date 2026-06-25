@@ -57,7 +57,8 @@
     #editbar.on { display: flex; }
     #editbar select { border: 1px solid #d1d5db; border-radius: 6px; padding: 5px; font-size: 13px; max-width: 38vw; }
     #editbar .hint { color: #92400e; flex: 1; }
-    #editExport { border: 0; border-radius: 8px; padding: 7px 12px; background: #f59e0b; color: #fff; font-weight: 700; font-size: 13px; white-space: nowrap; }
+    #editSave { border: 0; border-radius: 8px; padding: 7px 12px; background: #2563eb; color: #fff; font-weight: 700; font-size: 13px; white-space: nowrap; }
+    #editReset { border: 0; border-radius: 8px; padding: 7px 12px; background: #e5e7eb; color: #111; font-weight: 700; font-size: 13px; white-space: nowrap; }
     #go { border: 0; border-radius: 8px; padding: 9px 14px; background: #2563eb; color: #fff; font-size: 14px; font-weight: 600; }
     #status { position: absolute; z-index: 1000; left: 10px; right: 10px; bottom: 10px;
       background: rgba(255,255,255,.95); padding: 8px 12px; border-radius: 10px; font-size: 12px; color: #555;
@@ -117,8 +118,7 @@
     #navbar .sp { flex: 1; }
     #navbar .dist { font-weight: 700; color: #93c5fd; }
     #navClose { border: 0; background: rgba(255,255,255,.15); color: #fff; border-radius: 8px; padding: 6px 10px; font-size: 13px; }
-    #poiToggle { border: 0; border-radius: 8px; padding: 9px 12px; background: #e5e7eb; color: #111; font-size: 14px; font-weight: 600; }
-    #poiToggle, #go, #navClose, #editExport { display: inline-flex; align-items: center; gap: 5px; }
+    #go, #navClose, #editSave, #editReset { display: inline-flex; align-items: center; gap: 5px; }
     #share { border: 0; border-radius: 8px; padding: 9px 11px; background: #e5e7eb; color: #111; font-size: 14px; }
     #toast { position: absolute; z-index: 1002; left: 50%; bottom: 92px; transform: translateX(-50%);
       background: #111827; color: #fff; padding: 10px 16px; border-radius: 20px; font-size: 13px;
@@ -138,7 +138,8 @@
     <span>✏️</span>
     <select id="editCat"></select>
     <span class="hint">빈 곳 탭 → 추가</span>
-    <button id="editExport">💾 내보내기</button>
+    <button id="editSave">💾 저장</button>
+    <button id="editReset">↩︎ 원본</button>
   </div>
   <div id="toast"></div>
   <div id="poibar">
@@ -200,7 +201,9 @@
     const SLUG = new URLSearchParams(location.search).get('event');
     if (!SLUG) { location.replace('index.html'); }
     const BASE = `events/${SLUG}/`;
-    const EDIT = new URLSearchParams(location.search).get('edit') === '1';   // ?edit=1 → 사이트 추가 편집 모드
+    let EDIT = false;                                                        // 편집 모드 — ?edit=<키>가 edit.json의 키와 일치할 때만 (비공개 링크)
+    let LIVE_EDIT = false;                                                    // 셀프 편집(Firestore 저장본 사용) 활성 — georef "liveEdit":true
+    const EDIT_PARAM = new URLSearchParams(location.search).get('edit');
     let editCat = 'garden';
 
     const map = L.map('map', { crs: L.CRS.Simple, minZoom: -6, maxZoom: 4, zoomControl: false, attributionControl: false, fadeAnimation: true, maxBoundsViscosity: 1.0 });
@@ -443,8 +446,14 @@
       Festmap.track('open', { event: SLUG });
       pinLayer.addTo(map); favLayer.addTo(map); labelLayer.addTo(map);   // 레이어는 항상
       loadFavs(); renderFavs();                   // 저장된 즐겨찾기 복원
-      await setupPois();                          // 핀/검색 (pois.json 있으면)
-      setupEdit();                                // 편집 모드(?edit=1)면 사이트 추가 도구
+      // 셀프 편집: 행사가 켰을 때만(liveEdit). 편집 모드는 ?edit=<키>가 edit.json의 키와 일치해야 진입.
+      LIVE_EDIT = !!g.liveEdit;
+      if (EDIT_PARAM && LIVE_EDIT) {
+        try { const ek = await (await fetch(BASE + 'edit.json', { cache: 'no-store' })).json();
+              EDIT = !!(ek && ek.key && EDIT_PARAM === ek.key); } catch (e) { EDIT = false; }
+      }
+      await setupPois();                          // 핀/검색 (pois.json + 셀프 편집 저장본)
+      setupEdit();                                // 편집 모드면 추가/저장 도구
       showShared();                               // 공유받은 위치(?at=) 있으면 표시
     })();
 
@@ -498,7 +507,7 @@
     document.getElementById('go').innerHTML = svgIcon('share') + '<span>내 위치 공유하기</span>';
     (() => { const ns = document.querySelector('#navbar > span'); if (ns) ns.innerHTML = svgIcon('pin') + ' <b id="navName">목표</b>'; })();
     (() => { const eb = document.querySelector('#editbar > span'); if (eb) eb.innerHTML = svgIcon('pencil', 15); })();
-    (() => { const ex = document.getElementById('editExport'); if (ex) ex.innerHTML = svgIcon('download', 15) + '<span>내보내기</span>'; })();
+    (() => { const sv = document.getElementById('editSave'); if (sv) sv.innerHTML = svgIcon('download', 15) + '<span>저장</span>'; })();
     // 칩에 노출할 순서(데이터에 있는 것만)
     const CHIP_ORDER = ['toilet', 'store', 'cafe', 'foodtruck', 'parking', 'info', 'nursing', 'bus', 'garden'];
 
@@ -512,10 +521,29 @@
         html: `<div class="poi${target ? ' target' : ''}" style="--c:${c.color}"></div>` });
     }
 
+    // 셀프 편집 저장본(Firestore)을 읽어옴. 없거나 못 읽으면 null → baseline(pois.json) 사용.
+    function loadLivePois() {
+      return new Promise((resolve) => {
+        if (!window.Festmap || !Festmap.withDb) return resolve(null);
+        let done = false;
+        const to = setTimeout(() => { if (!done) { done = true; resolve(null); } }, 4000);
+        Festmap.withDb((db) => {
+          db.collection('events').doc(SLUG).collection('live').doc('pois').get()
+            .then((s) => { if (done) return; done = true; clearTimeout(to);
+              try { resolve(s.exists ? JSON.parse(s.data().pois || '[]') : null); } catch (e) { resolve(null); } })
+            .catch(() => { if (done) return; done = true; clearTimeout(to); resolve(null); });
+        });
+      });
+    }
+
     async function setupPois() {
       let data;
-      try { data = await (await fetch(BASE + 'pois.json')).json(); } catch (e) { return; } // 없으면 조용히 패스
+      try { data = await (await fetch(BASE + 'pois.json')).json(); } catch (e) { data = { pois: [] }; }
       POIS = (data.pois || []).filter(p => p && p.x != null && p.y != null);
+      if (LIVE_EDIT) {                              // 셀프 편집 켠 행사: 저장본 있으면 그걸로 대체
+        const live = await loadLivePois();
+        if (live) POIS = live.filter(p => p && p.x != null && p.y != null);
+      }
       if (!POIS.length) return;
       pinLayer.addTo(map);
       buildChips();
@@ -602,11 +630,11 @@
     window._editPoi = function (x, y) {
       const p = POIS.find(pp => pp.x === x && pp.y === y); if (!p) return;
       const n = prompt(p.cat === 'label' ? '글자 수정' : '장소 이름', p.name || ''); if (n == null) return;
-      p.name = n; refreshPois(); map.closePopup(); toast('수정됨 — 다 되면 💾 내보내기');
+      p.name = n; refreshPois(); map.closePopup(); toast('수정됨 — 다 되면 💾 저장');
     };
     window._delPoi = function (x, y) {
       POIS = POIS.filter(p => !(p.x === x && p.y === y));
-      refreshPois(); map.closePopup(); toast('삭제됨 — 다 되면 💾 내보내기');
+      refreshPois(); map.closePopup(); toast('삭제됨 — 다 되면 💾 저장');
     };
 
     // 편집 모드: 지도 탭으로 사이트(POI) 추가 → pois.json 내보내기
@@ -628,11 +656,26 @@
         refreshPois();
         toast('추가됨: ' + name);
       });
-      document.getElementById('editExport').onclick = () => {
-        const blob = new Blob([JSON.stringify({ pois: POIS }, null, 0)], { type: 'application/json' });
-        const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-        a.download = 'pois.json'; a.click();
-        toast('내보냄 — events/' + SLUG + '/pois.json 에 덮어쓰고 커밋하세요');
+      // 저장: 현재 핀/라벨 전체를 Firestore 저장본으로 올림 → 모든 사용자에게 즉시 반영
+      document.getElementById('editSave').onclick = () => {
+        if (!window.Festmap || !Festmap.withDb) { toast('저장 기능을 쓸 수 없어요(설정 확인)'); return; }
+        toast('저장 중…');
+        Festmap.withDb((db, fb) => {
+          db.collection('events').doc(SLUG).collection('live').doc('pois')
+            .set({ pois: JSON.stringify(POIS), updated: fb.firestore.FieldValue.serverTimestamp() })
+            .then(() => toast('저장됨 ✓ 모든 사용자에게 반영돼요'))
+            .catch((e) => toast('저장 실패: ' + ((e && e.code) || e)));
+        });
+      };
+      // 원본으로 되돌리기: 저장본 삭제 → 다음 로드부터 기본 pois.json 사용
+      document.getElementById('editReset').onclick = () => {
+        if (!Festmap || !Festmap.withDb) return;
+        if (!confirm('편집한 내용을 모두 지우고 처음 납품 상태(원본)로 되돌릴까요?')) return;
+        Festmap.withDb((db) => {
+          db.collection('events').doc(SLUG).collection('live').doc('pois').delete()
+            .then(() => { toast('원본으로 되돌렸어요 — 새로고침합니다'); setTimeout(() => location.reload(), 900); })
+            .catch((e) => toast('되돌리기 실패: ' + ((e && e.code) || e)));
+        });
       };
     }
 

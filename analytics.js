@@ -106,6 +106,20 @@
       if (o && o.sampleSec > 0) pingMs = o.sampleSec * 1000;
       if (o && o.cellPx > 0) cellPx = o.cellPx;
     },
+    // 편집 모드 등에서 Firestore가 필요할 때: SDK 로드(재사용) 후 db 전달. (없으면 콜백 미호출)
+    withDb: function (cb) {
+      if (!cfg || !cfg.apiKey) return;
+      if (ready && db) return cb(db, global.firebase);
+      var b = 'https://www.gstatic.com/firebasejs/10.12.2/';
+      inject(b + 'firebase-app-compat.js', function () {
+        inject(b + 'firebase-firestore-compat.js', function () {
+          try {
+            if (!global.firebase.apps.length) global.firebase.initializeApp(cfg);
+            db = global.firebase.firestore(); ready = true; cb(db, global.firebase);
+          } catch (e) {}
+        });
+      });
+    },
     track: function (type, payload) {
       var rec = { t: type, sid: sid(), ts: Date.now() };
       for (var k in (payload || {})) rec[k] = payload[k];

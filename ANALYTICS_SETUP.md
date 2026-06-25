@@ -41,6 +41,13 @@ service cloud.firestore {
       allow read: if true;
       allow write: if true;
     }
+
+    // 셀프 편집 저장본(핀/라벨): 공개 읽기(뷰어가 사용), 쓰기 허용.
+    // 운영: 비공개 편집링크(?edit=<키>)로만 편집 UI 진입 + "원본 되돌리기"로 복구.
+    match /events/{slug}/live/{doc} {
+      allow read: if true;
+      allow write: if true;
+    }
   }
 }
 ```
