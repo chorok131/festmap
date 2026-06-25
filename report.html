@@ -17,7 +17,14 @@
     .head .ev { color: var(--muted); font-size: 14px; }
     .head .sp { flex: 1; }
     .badge { background: #fef3c7; color: #92400e; font-size: 12px; font-weight: 800; padding: 4px 10px; border-radius: 20px; }
+    .badge.live { background: #dcfce7; color: #166534; }
     .meta { color: var(--muted); font-size: 12px; text-align: right; }
+
+    #controls { display: none; align-items: center; gap: 10px; flex-wrap: wrap; margin: 18px 0 0; padding: 14px 16px; background: var(--bg); border: 1px solid var(--line); border-radius: 12px; font-size: 14px; }
+    #controls.on { display: flex; }
+    #controls input[type=date] { border: 1px solid #d1d5db; border-radius: 8px; padding: 7px 10px; font-size: 14px; font-family: inherit; }
+    #controls .run { border: 0; border-radius: 8px; padding: 8px 18px; background: var(--blue); color: #fff; font-weight: 700; font-size: 14px; cursor: pointer; }
+    #controls .note { color: var(--muted); font-size: 12.5px; }
 
     .cards { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; margin: 22px 0; }
     @media (max-width: 640px) { .cards { grid-template-columns: 1fr 1fr; } }
@@ -27,11 +34,12 @@
     .card .v small { font-size: 13px; font-weight: 600; color: var(--muted); }
 
     h2 { font-size: 16px; margin: 26px 0 10px; }
-    .mapwrap { position: relative; border-radius: 12px; overflow: hidden; border: 1px solid var(--line); }
+    .mapwrap { position: relative; border-radius: 12px; overflow: hidden; border: 1px solid var(--line); background: #f3f4f6; }
     .mapwrap img { width: 100%; display: block; }
     .mapwrap canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
     .legend { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); margin-top: 8px; }
-    .legend .bar { height: 10px; width: 160px; border-radius: 6px; background: linear-gradient(90deg,#1e90ff,#22c55e,#eab308,#ef4444); }
+    .legend .bar { height: 10px; width: 160px; border-radius: 6px; background: linear-gradient(90deg,#bfdbfe,#22c55e,#eab308,#ef4444); }
+    #heatNote { font-size: 12.5px; color: #9ca3af; margin-top: 8px; }
 
     .cols { display: grid; grid-template-columns: 1.1fr 1fr; gap: 24px; margin-top: 8px; }
     @media (max-width: 640px) { .cols { grid-template-columns: 1fr; } }
@@ -42,11 +50,11 @@
     .arearow .fill { height: 100%; background: var(--blue); }
     .arearow .pct { width: 34px; text-align: right; font-weight: 700; font-size: 13px; flex: 0 0 auto; }
 
-    .hours { display: flex; align-items: flex-end; gap: 6px; height: 130px; padding-top: 8px; }
-    .hours .h { flex: 1; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 4px; }
+    .hours { display: flex; align-items: flex-end; gap: 4px; height: 130px; padding-top: 8px; overflow-x: auto; }
+    .hours .h { flex: 1 0 14px; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 4px; }
     .hours .h .b { width: 100%; background: var(--blue); border-radius: 4px 4px 0 0; min-height: 2px; }
     .hours .h.peak .b { background: #ef4444; }
-    .hours .h .lab { font-size: 10px; color: var(--muted); }
+    .hours .h .lab { font-size: 10px; color: var(--muted); white-space: nowrap; }
 
     .foot { margin-top: 26px; border-top: 1px solid var(--line); padding-top: 14px; color: var(--muted); font-size: 12px; }
     .printbtn { border: 0; border-radius: 8px; padding: 9px 16px; background: var(--ink); color: #fff; font-weight: 600; font-size: 13px; cursor: pointer; }
@@ -66,6 +74,16 @@
       </div>
     </div>
 
+    <!-- 라이브 모드: 기간 선택 (편집키로 진입 시에만) -->
+    <div id="controls" class="noprint">
+      <span>조회 기간</span>
+      <input type="date" id="from" />
+      <span>~</span>
+      <input type="date" id="to" />
+      <button class="run" id="run">조회</button>
+      <span class="note" id="rangeNote"></span>
+    </div>
+
     <div class="cards" id="cards"></div>
 
     <h2>혼잡 히트맵 — 관람객이 머문 곳</h2>
@@ -74,8 +92,10 @@
       <canvas id="heat"></canvas>
     </div>
     <div class="legend"><span>적음</span><div class="bar"></div><span>많음</span> · 진한 곳일수록 관람객이 많이 머문 구역</div>
+    <div id="heatNote"></div>
 
-    <div class="cols">
+    <!-- 데모 전용 섹션 -->
+    <div class="cols" id="demoCols">
       <div>
         <h2>가장 붐빈 구역 TOP</h2>
         <div id="areas"></div>
@@ -86,30 +106,47 @@
       </div>
     </div>
 
+    <!-- 라이브 전용 섹션 -->
+    <div id="liveTrend" style="display:none">
+      <h2>일별 열람 추이</h2>
+      <div class="hours" id="trend"></div>
+    </div>
+
     <div class="foot">
       <p id="footNote">⚠️ 본 리포트는 <b>샘플(예시) 데이터</b>로 작성됐습니다. 실제 행사에서는 익명 집계된 진짜 관람객 동선으로 자동 생성됩니다. <a href="heatmap.html" style="color:var(--blue)">익명 집계 방식 보기 ▸</a></p>
+      <p id="liveNote" style="display:none">📊 <b>베타 테스트 중</b> · 위치는 <b>익명 격자 집계</b>(개인 위치 미저장). <a href="heatmap.html" style="color:var(--blue)">집계 방식 보기 ▸</a></p>
       <p>minimap.kr · 동선·체류 데이터 리포트 &nbsp;<button class="printbtn noprint" onclick="window.print()">PDF로 저장 / 인쇄</button></p>
     </div>
   </div>
 
+  <script src="firebase-config.js"></script>
+  <script src="analytics.js"></script>
   <script>
-    const SLUG = new URLSearchParams(location.search).get('event') || 'seoulforest-2026';
+    const params = new URLSearchParams(location.search);
+    const SLUG = params.get('event') || 'seoulforest-2026';
+    const KEY = params.get('key');
     const BASE = 'events/' + SLUG + '/';
-
     function fmtDate(d) { return d.getFullYear() + '.' + (d.getMonth()+1) + '.' + d.getDate(); }
+    function isoDay(d) { return new Date(d.getTime() - d.getTimezoneOffset()*60000).toISOString().slice(0,10); }
 
-    (async function () {
-      let data, g;
-      try {
-        data = await (await fetch(BASE + 'traffic-demo.json')).json();
-        g = await (await fetch(BASE + 'georef.json')).json();
-      } catch (e) { document.body.innerHTML = '<p style="padding:40px;font-family:sans-serif">리포트 데이터를 불러올 수 없어요.</p>'; return; }
-
-      document.getElementById('evName').textContent = (data.event || '') + ' · ' + (data.stats.visitors) + '명 기준';
+    (async function init() {
+      let g;
+      try { g = await (await fetch(BASE + 'georef.json')).json(); }
+      catch (e) { document.body.innerHTML = '<p style="padding:40px;font-family:sans-serif">행사 데이터를 불러올 수 없어요.</p>'; return; }
+      // 편집키가 맞으면 라이브(실데이터), 아니면 데모
+      let live = false;
+      if (KEY) { try { const ek = await (await fetch(BASE + 'edit.json', { cache:'no-store' })).json(); live = !!(ek && ek.key && KEY === ek.key); } catch (e) {} }
       document.getElementById('genMeta').textContent = '생성일 ' + fmtDate(new Date());
-      if (!data.demo) document.getElementById('demoBadge').style.display = 'none';
-      if (!data.demo) document.getElementById('footNote').style.display = 'none';
+      if (live) initLive(g); else initDemo(g);
+    })();
 
+    // ─────────── 데모 모드 (키 없음) ───────────
+    async function initDemo(g) {
+      let data;
+      try { data = await (await fetch(BASE + 'traffic-demo.json')).json(); }
+      catch (e) { document.body.innerHTML = '<p style="padding:40px;font-family:sans-serif">리포트 데이터를 불러올 수 없어요.</p>'; return; }
+      document.getElementById('evName').textContent = (data.event || '') + ' · ' + (data.stats.visitors) + '명 기준';
+      if (!data.demo) { document.getElementById('demoBadge').style.display = 'none'; document.getElementById('footNote').style.display = 'none'; }
       const s = data.stats;
       document.getElementById('cards').innerHTML = [
         ['방문자(추정)', s.visitors + '<small>명</small>'],
@@ -117,26 +154,127 @@
         ['피크 시간대', s.peakHour + '<small>시</small>'],
         ['측정 위치수', (s.totalPings).toLocaleString() + '<small>건</small>']
       ].map(c => `<div class="card"><div class="k">${c[0]}</div><div class="v">${c[1]}</div></div>`).join('');
-
-      // 인기 구역
       const maxShare = Math.max(...data.byArea.map(a => a.share), 1);
       document.getElementById('areas').innerHTML = data.byArea.map((a, i) =>
         `<div class="arearow"><div class="rank">${i+1}</div><div class="nm">${a.name}</div>
          <div class="track"><div class="fill" style="width:${Math.round(a.share/maxShare*100)}%"></div></div>
          <div class="pct">${a.share}%</div></div>`).join('');
-
-      // 시간대 그래프
       const maxV = Math.max(...data.hourly.map(h => h.v), 1);
       document.getElementById('hours').innerHTML = data.hourly.map(h =>
         `<div class="h ${h.h===s.peakHour?'peak':''}"><div class="b" style="height:${Math.round(h.v/maxV*100)}%"></div><div class="lab">${h.h}</div></div>`).join('');
-
-      // 히트맵
       const img = document.getElementById('map');
       await new Promise(res => { img.onload = res; img.onerror = res; img.src = BASE + g.image; });
-      drawHeat(img, data.points);
-      window.addEventListener('resize', () => drawHeat(img, data.points));
-    })();
+      drawHeatSmooth(img, data.points);
+      window.addEventListener('resize', () => drawHeatSmooth(img, data.points));
+    }
 
+    // ─────────── 라이브 모드 (편집키 일치 → 실데이터) ───────────
+    async function initLive(g) {
+      document.getElementById('evName').textContent = (g.event || SLUG);
+      const badge = document.getElementById('demoBadge'); badge.textContent = '베타 · 실데이터'; badge.classList.add('live');
+      document.getElementById('footNote').style.display = 'none';
+      document.getElementById('liveNote').style.display = '';
+      document.getElementById('demoCols').style.display = 'none';
+      document.getElementById('liveTrend').style.display = '';
+      document.getElementById('controls').classList.add('on');
+
+      // 기본 기간: 최근 30일
+      const today = new Date(), ago = new Date(today.getTime() - 29*864e5);
+      document.getElementById('from').value = isoDay(ago);
+      document.getElementById('to').value = isoDay(today);
+
+      const img = document.getElementById('map');
+      await new Promise(res => { img.onload = res; img.onerror = res; img.src = BASE + g.image; });
+
+      async function run() {
+        const from = document.getElementById('from').value, to = document.getElementById('to').value;
+        if (!from || !to || from > to) { document.getElementById('rangeNote').textContent = '기간을 확인해 주세요.'; return; }
+        document.getElementById('rangeNote').textContent = '조회 중…';
+        const agg = await queryRange(from, to);
+        if (!agg) { document.getElementById('rangeNote').textContent = '데이터를 불러오지 못했어요(설정/권한 확인).'; return; }
+        renderLive(agg, img);
+        document.getElementById('rangeNote').textContent = from + ' ~ ' + to + ' · ' + agg.byDay.length + '일 집계';
+      }
+      document.getElementById('run').onclick = run;
+      window.addEventListener('resize', () => { if (lastAgg) drawHeatGrid(img, lastAgg.cells, lastAgg.hc || 1); });
+      run();
+    }
+
+    function queryRange(from, to) {
+      return new Promise((resolve) => {
+        if (!window.Festmap || !Festmap.withDb) return resolve(null);
+        let done = false; const to_ = setTimeout(() => { if (!done) { done = true; resolve(null); } }, 6000);
+        Festmap.withDb((db) => {
+          db.collection('events').doc(SLUG).collection('daily')
+            .where('day', '>=', from).where('day', '<=', to).get()
+            .then((qs) => {
+              if (done) return; done = true; clearTimeout(to_);
+              const agg = { opens:0, locates:0, hsessions:0, hc:0, cells:{}, byDay:[] };
+              qs.forEach((doc) => {
+                const d = doc.data();
+                agg.opens += d.opens||0; agg.locates += d.locates||0; agg.hsessions += d.hsessions||0;
+                if (d.hc) agg.hc = d.hc;
+                agg.byDay.push({ day: d.day || doc.id, opens: d.opens||0 });
+                for (const k in d) { if (k.indexOf('h_') === 0) { const c = k.slice(2); agg.cells[c] = (agg.cells[c]||0) + (d[k]||0); } }
+              });
+              agg.byDay.sort((a,b) => a.day < b.day ? -1 : 1);
+              resolve(agg);
+            }).catch(() => { if (done) return; done = true; clearTimeout(to_); resolve(null); });
+        });
+      });
+    }
+
+    let lastAgg = null;
+    function renderLive(agg, img) {
+      lastAgg = agg;
+      document.getElementById('cards').innerHTML = [
+        ['열람(지도 연 사람)', agg.opens.toLocaleString() + '<small>명</small>'],
+        ['위치사용', agg.locates.toLocaleString() + '<small>명</small>'],
+        ['측정 세션', agg.hsessions.toLocaleString() + '<small>건</small>'],
+        ['집계된 날', agg.byDay.length + '<small>일</small>']
+      ].map(c => `<div class="card"><div class="k">${c[0]}</div><div class="v">${c[1]}</div></div>`).join('');
+
+      const shown = drawHeatGrid(img, agg.cells, agg.hc || 1);
+      document.getElementById('heatNote').textContent = shown
+        ? '※ 익명 보호: 3명 미만이 지나간 칸은 표시하지 않습니다.'
+        : '표시할 만큼 데이터가 충분하지 않아요(익명 보호 기준 3명 미만 칸 제외).';
+
+      const maxV = Math.max(1, ...agg.byDay.map(d => d.opens));
+      document.getElementById('trend').innerHTML = agg.byDay.length
+        ? agg.byDay.map(d => `<div class="h"><div class="b" style="height:${Math.round(d.opens/maxV*100)}%"></div><div class="lab">${(d.day||'').slice(5)}</div></div>`).join('')
+        : '<div style="color:#9ca3af;font-size:13px;padding:24px 0">이 기간에 집계된 데이터가 없어요.</div>';
+    }
+
+    // ── 색/도형 헬퍼 ──
+    function gradAt(t) {
+      const stops = [[191,219,254],[34,197,94],[234,179,8],[239,68,68]];
+      const seg = Math.min(stops.length-2, Math.floor(t*(stops.length-1)));
+      const f = t*(stops.length-1) - seg, a = stops[seg], b = stops[seg+1];
+      return [Math.round(a[0]+(b[0]-a[0])*f), Math.round(a[1]+(b[1]-a[1])*f), Math.round(a[2]+(b[2]-a[2])*f)];
+    }
+    function roundRect(ctx,x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+
+    // 라이브: 격자 히트맵 (h_ 셀 카운트 → 블록). 임계값 미만 칸은 숨김(개인정보 원칙). 표시 칸 있으면 true 반환.
+    function drawHeatGrid(img, cells, hc) {
+      const w = img.clientWidth, h = img.clientHeight; if (!w || !h) return false;
+      const cv = document.getElementById('heat'); cv.width = w; cv.height = h;
+      const ctx = cv.getContext('2d'); ctx.clearRect(0, 0, w, h);
+      const cwx = Math.max(2, hc * w / img.naturalWidth), cwy = Math.max(2, hc * h / img.naturalHeight);
+      const THRESH = 3;
+      let max = 1, shown = 0;
+      for (const k in cells) max = Math.max(max, cells[k]);
+      for (const k in cells) {
+        const c = cells[k]; if (c < THRESH) continue;
+        const [cx, cy] = k.split('_').map(Number);
+        const [r, g, b] = gradAt((c-1) / Math.max(1, max-1));
+        ctx.fillStyle = `rgba(${r},${g},${b},0.62)`;
+        roundRect(ctx, cx*cwx + 1, cy*cwy + 1, cwx - 2, cwy - 2, 4); ctx.fill();
+        shown++;
+      }
+      return shown > 0;
+    }
+
+    // 데모: 부드러운 히트맵 (points 기반)
     function gradient() {
       const c = document.createElement('canvas'); c.width = 256; c.height = 1;
       const ctx = c.getContext('2d'); const gr = ctx.createLinearGradient(0, 0, 256, 0);
@@ -150,16 +288,14 @@
       gr.addColorStop(0, 'rgba(0,0,0,1)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
       ctx.fillStyle = gr; ctx.fillRect(0, 0, r * 2, r * 2); return c;
     }
-    function drawHeat(img, points) {
-      const w = img.clientWidth, h = img.clientHeight;
-      if (!w || !h) return;
+    function drawHeatSmooth(img, points) {
+      const w = img.clientWidth, h = img.clientHeight; if (!w || !h) return;
       const cv = document.getElementById('heat'); cv.width = w; cv.height = h;
       const ctx = cv.getContext('2d');
       const sx = w / img.naturalWidth, sy = h / img.naturalHeight;
       const R = Math.max(10, Math.round(w * 0.022));
       const b = brush(R);
-      ctx.clearRect(0, 0, w, h);
-      ctx.globalAlpha = 0.11;
+      ctx.clearRect(0, 0, w, h); ctx.globalAlpha = 0.11;
       for (const p of points) ctx.drawImage(b, p[0] * sx - R, p[1] * sy - R);
       ctx.globalAlpha = 1;
       const pal = gradient();
