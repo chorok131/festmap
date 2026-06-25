@@ -523,6 +523,25 @@
     // 칩에 노출할 순서(데이터에 있는 것만)
     const CHIP_ORDER = ['toilet', 'store', 'cafe', 'foodtruck', 'parking', 'info', 'nursing', 'bus', 'garden'];
 
+    // ── 담당자가 만든 커스텀 핀 분류 (편집키로 추가, Firestore 저장본에 함께 보관) ──
+    let CUSTOM_CATS = {};
+    const CAT_PALETTE = ['#0ea5e9', '#8b5cf6', '#ec4899', '#f97316', '#14b8a6', '#eab308', '#ef4444', '#6366f1', '#84cc16', '#06b6d4'];
+    function applyCustomCats(obj) {                 // 저장본/추가 시 CAT·CHIP_ORDER에 병합
+      if (!obj) return;
+      for (const id in obj) {
+        const c = obj[id]; if (!c || !c.label) continue;
+        CAT[id] = { label: c.label, color: c.color || '#2563eb', icon: c.icon || 'pin' };
+        CUSTOM_CATS[id] = CAT[id];
+        if (CHIP_ORDER.indexOf(id) < 0) CHIP_ORDER.push(id);
+      }
+    }
+    function addCustomCat(label) {                  // 새 분류 1개 생성 → id 반환
+      const id = 'c_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+      const color = CAT_PALETTE[Object.keys(CUSTOM_CATS).length % CAT_PALETTE.length];
+      applyCustomCats({ [id]: { label: label, color: color, icon: 'pin' } });
+      return id;
+    }
+
     let POIS = [], pinLayer = L.layerGroup(), labelLayer = L.layerGroup(), activeCats = new Set();
     const poiLatLng = (p) => L.latLng(H - p.y, p.x);
     function escHtml(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
@@ -542,7 +561,7 @@
         Festmap.withDb((db) => {
           db.collection('events').doc(SLUG).collection('live').doc('pois').get()
             .then((s) => { if (done) return; done = true; clearTimeout(to);
-              try { resolve(s.exists ? JSON.parse(s.data().pois || '[]') : null); } catch (e) { resolve(null); } })
+              try { resolve(s.exists ? { pois: JSON.parse(s.data().pois || '[]'), cats: JSON.parse(s.data().cats || '{}') } : null); } catch (e) { resolve(null); } })
             .catch(() => { if (done) return; done = true; clearTimeout(to); resolve(null); });
         });
       });
@@ -554,7 +573,7 @@
       POIS = (data.pois || []).filter(p => p && p.x != null && p.y != null);
       if (LIVE_EDIT) {                              // 셀프 편집 켠 행사: 저장본 있으면 그걸로 대체
         const live = await loadLivePois();
-        if (live) POIS = live.filter(p => p && p.x != null && p.y != null);
+        if (live) { applyCustomCats(live.cats); POIS = (live.pois || []).filter(p => p && p.x != null && p.y != null); }
       }
       if (!POIS.length) return;
       pinLayer.addTo(map);
@@ -655,8 +674,21 @@
     function setupEdit() {
       if (!EDIT) return;
       const sel = document.getElementById('editCat');
-      sel.innerHTML = Object.keys(CAT).filter(k => k !== 'shared').map(k => `<option value="${k}">${CAT[k].label}</option>`).join('');
-      sel.value = editCat; sel.onchange = () => editCat = sel.value;
+      function buildCatSelect() {
+        sel.innerHTML = Object.keys(CAT).filter(k => k !== 'shared').map(k => `<option value="${k}">${escHtml(CAT[k].label)}</option>`).join('')
+          + '<option value="__new__">＋ 새 분류 추가…</option>';
+        sel.value = editCat;
+      }
+      buildCatSelect();
+      sel.onchange = () => {
+        if (sel.value === '__new__') {
+          const name = prompt('새 핀 분류 이름 (예: 포토존, 응급의료, 주차안내)', '');
+          if (!name) { sel.value = editCat; return; }
+          editCat = addCustomCat(name.trim());
+          buildCatSelect(); buildChips(); syncChips();
+          toast('분류 추가됨: ' + name + ' — 지도 탭해서 핀 찍으세요');
+        } else { editCat = sel.value; }
+      };
       document.getElementById('editbar').classList.add('on');
       new Set(POIS.map(p => p.cat)).forEach(c => activeCats.add(c));   // 편집 땐 전부 표시
       refreshPois(); syncChips();
@@ -677,7 +709,7 @@
         toast('저장 중…');
         Festmap.withDb((db, fb) => {
           db.collection('events').doc(SLUG).collection('live').doc('pois')
-            .set({ pois: JSON.stringify(POIS), updated: fb.firestore.FieldValue.serverTimestamp() })
+            .set({ pois: JSON.stringify(POIS), cats: JSON.stringify(CUSTOM_CATS), updated: fb.firestore.FieldValue.serverTimestamp() })
             .then(() => toast('저장됨 ✓ 모든 사용자에게 반영돼요'))
             .catch((e) => toast('저장 실패: ' + ((e && e.code) || e)));
         });
