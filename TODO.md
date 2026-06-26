@@ -11,12 +11,12 @@
 - [x] **동선 full 모드** — georef `"track":"full"` + `sampleSec` 지원. (기본은 익명 heat)
 - [x] **브랜드 확정** — "미니맵 — 실시간 위치 약도", OG 카드(og.png).
 - [x] **셀프 편집 1단계** — 비공개 편집링크로 핀/라벨 수정 → Firestore 저장 + 되돌리기.
+- [x] **Firestore `live/{doc}` 규칙 게시** (2026-06-26) — 셀프 편집 저장·되돌리기 작동(쓰기·삭제 HTTP 200 실측). 규칙은 `firestore.rules`에 기록.
+- [x] **검색 등록** (2026-06-26) — 구글 서치콘솔 + 네이버 서치어드바이저 소유확인(메타태그) + sitemap 제출.
 
 ## 🟠 형님 계정 작업 (아이폰 미리알림에도 있음)
 - [ ] **GitHub 사용자명 변경: chorok131 → 브랜드 핸들(minimapkr)** — Settings→Account→Change username. 변경 후 Claude가 로컬 remote + 커밋 이름 정리.
-- [ ] **네이버 서치어드바이저 + 구글 서치콘솔 등록** (각 10분) — sitemap.xml 제출(이미 준비됨).
 - [ ] **인스타 미니맵 전용 계정 + 첫 게시물** — 캡션 3종 준비됨. 핸들 전 플랫폼 선점.
-- [ ] **Firestore `live/{doc}` 규칙 게시** — 셀프 편집 "저장"이 실제로 되려면 필요(ANALYTICS_SETUP.md). 리포트는 규칙 없이도 작동.
 - [ ] asset-book(`asset-book-3becf`) 보안규칙 `request.auth.uid == userId` 확인.
 
 ## ✅ 결정됨 (2026-06) — 추가 작업 없음

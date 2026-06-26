@@ -1,0 +1,25 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 원천 세션 기록: 누구나 자기 것 쓰기만, 읽기/삭제 차단 (D단계 동선 원본)
+    match /events/{slug}/sessions/{sid} {
+      allow create, update: if true;
+      allow read, delete: if false;
+    }
+
+    // 일별 집계 숫자: 공개 읽기 가능(민감X), 증가 쓰기 허용
+    match /events/{slug}/daily/{day} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    // 셀프 편집 저장본(핀/라벨): 공개 읽기(뷰어 사용), 쓰기 허용.
+    // 운영: 비공개 편집링크(?edit=<키>)로만 편집 UI 진입 + "원본 되돌리기"로 복구.
+    // e.html 저장 경로: events/{slug}/live/pois
+    match /events/{slug}/live/{doc} {
+      allow read: if true;
+      allow write: if true;
+    }
+  }
+}
