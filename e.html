@@ -644,62 +644,22 @@
       return m == null ? '' : `<div style="font-size:12px;color:#2563eb;margin-bottom:6px">내 위치에서 약 ${m}m</div>`;
     }
 
-    // ── 핀 사진(담당자 추가) — 큰 base64라 핀별 별도 문서(live/photo_<pid>)에 저장: 메인 blob 비대화·1MB 한도 회피 ──
-    const photoCache = {};
-    function loadPhoto(pid) {
-      if (pid in photoCache) return Promise.resolve(photoCache[pid]);
-      return new Promise((res) => {
-        if (!window.Festmap || !Festmap.withDb) return res(null);
-        Festmap.withDb((db) => db.collection('events').doc(SLUG).collection('live').doc('photo_' + pid).get()
-          .then((s) => { const u = s.exists ? s.data().img : null; photoCache[pid] = u; res(u); })
-          .catch(() => res(null)));
-      });
-    }
-    function compressImage(file, maxDim, quality) {   // 브라우저에서 축소·JPEG 변환 → data URL
-      return new Promise((resolve, reject) => {
-        const img = new Image();
-        img.onload = () => {
-          let w = img.naturalWidth, h = img.naturalHeight;
-          const s = Math.min(1, maxDim / Math.max(w, h));
-          w = Math.round(w * s); h = Math.round(h * s);
-          const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
-          cv.getContext('2d').drawImage(img, 0, 0, w, h);
-          URL.revokeObjectURL(img.src);
-          resolve(cv.toDataURL('image/jpeg', quality));
-        };
-        img.onerror = reject; img.src = URL.createObjectURL(file);
-      });
-    }
-    function commitLive(msg) {   // 저장본(POIS = 설명·pid 포함) 업로드
-      if (!window.Festmap || !Festmap.withDb) { toast('저장 기능을 쓸 수 없어요(설정 확인)'); return; }
-      Festmap.withDb((db, fb) => db.collection('events').doc(SLUG).collection('live').doc('pois')
-        .set({ pois: JSON.stringify(POIS), cats: JSON.stringify(CUSTOM_CATS), updated: fb.firestore.FieldValue.serverTimestamp() })
-        .then(() => toast(msg || '저장됨 ✓'))
-        .catch((e) => toast('저장 실패: ' + ((e && e.code) || e))));
-    }
-
     function openPoi(p) {
       const c = CAT[p.cat] || {};
       const bstyle = 'border:0;border-radius:8px;padding:8px 12px;font-weight:600;font-size:13px;width:100%';
       let btns;
       if (EDIT) {
-        const mb = ';display:flex;align-items:center;justify-content:center;gap:5px;margin-bottom:6px';
-        btns = `<button onclick="window._editPoi(${p.x},${p.y})" style="${bstyle}${mb};background:#2563eb;color:#fff">${svgIcon('pencil', 15)} 이름 수정</button>
-                <button onclick="window._editDesc(${p.x},${p.y})" style="${bstyle}${mb};background:#eef2ff;color:#1e3a8a">📝 ${p.desc ? '설명 수정' : '설명 추가'}</button>
-                <button onclick="window._addPhoto(${p.x},${p.y})" style="${bstyle}${mb};background:#eef2ff;color:#1e3a8a">📷 ${p.pid ? '사진 교체' : '사진 추가'}</button>
+        btns = `<button onclick="window._editPoi(${p.x},${p.y})" style="${bstyle};display:flex;align-items:center;justify-content:center;gap:5px;background:#2563eb;color:#fff;margin-bottom:6px">${svgIcon('pencil', 15)} 이름 수정</button>
                 <button onclick="window._delPoi(${p.x},${p.y})" style="${bstyle};display:flex;align-items:center;justify-content:center;gap:5px;background:#e5e7eb;color:#111">${svgIcon('trash', 15)} 삭제</button>`;
       } else {
         const faved = isFav(p.x, p.y);
         btns = `<button onclick="window._toggleFav(${p.x},${p.y})" style="${bstyle};display:flex;align-items:center;justify-content:center;gap:5px;background:${faved ? '#e5e7eb' : '#f59e0b'};color:${faved ? '#111' : '#fff'}">${svgIcon('star', 15)} ${faved ? '즐겨찾기 해제' : '즐겨찾기에 추가'}</button>`;
       }
-      const media = (p.pid ? `<div class="poiphoto" data-pid="${p.pid}" style="margin:0 0 8px"><div style="font-size:12px;color:#9ca3af">사진 불러오는 중…</div></div>` : '')
-        + (p.desc ? `<div style="font-size:13px;color:#374151;line-height:1.5;margin:0 0 8px;white-space:pre-wrap">${escHtml(p.desc)}</div>` : '');
-      const html = `<div style="min-width:180px;max-width:260px">
+      const html = `<div style="min-width:150px">
         <div style="display:flex;align-items:center;gap:6px;font-weight:700;font-size:14px;margin-bottom:6px"><span style="color:${c.color || '#2563eb'}">${svgIcon(c.icon || 'pin', 18)}</span> <span>${p.name || c.label || ''}${p.id ? ' <span style="color:#9ca3af;font-weight:400">(' + p.id + ')</span>' : ''}</span></div>
-        ${distLine(p.x, p.y)}${media}${btns}
+        ${distLine(p.x, p.y)}${btns}
       </div>`;
-      L.popup({ closeButton: true, autoPan: true, maxWidth: 280 }).setLatLng(poiLatLng(p)).setContent(html).openOn(map);
-      if (p.pid) loadPhoto(p.pid).then((url) => { const el = document.querySelector('.poiphoto[data-pid="' + p.pid + '"]'); if (el) el.innerHTML = url ? '<img src="' + url + '" alt="" style="width:100%;border-radius:8px;display:block" />' : ''; });
+      L.popup({ closeButton: true, autoPan: true }).setLatLng(poiLatLng(p)).setContent(html).openOn(map);
     }
     window._editPoi = function (x, y) {
       const p = POIS.find(pp => pp.x === x && pp.y === y); if (!p) return;
@@ -708,35 +668,9 @@
       p.name = n; refreshPois(); map.closePopup(); toast('수정됨 — 다 되면 💾 저장');
     };
     window._delPoi = function (x, y) {
-      const p = POIS.find(pp => pp.x === x && pp.y === y);
       pushHistory();
-      POIS = POIS.filter(pp => !(pp.x === x && pp.y === y));
-      if (p && p.pid && window.Festmap && Festmap.withDb) Festmap.withDb((db) => db.collection('events').doc(SLUG).collection('live').doc('photo_' + p.pid).delete().catch(() => {}));
+      POIS = POIS.filter(p => !(p.x === x && p.y === y));
       refreshPois(); map.closePopup(); toast('삭제됨 — 다 되면 💾 저장');
-    };
-    window._editDesc = function (x, y) {
-      const p = POIS.find(pp => pp.x === x && pp.y === y); if (!p) return;
-      const n = prompt('설명 (방문자에게 보여요)', p.desc || ''); if (n == null) return;
-      pushHistory();
-      p.desc = n.trim() || undefined;
-      refreshPois(); map.closePopup(); commitLive('설명 저장됨 ✓ 방문자에게 바로 반영');
-    };
-    window._addPhoto = function (x, y) {
-      const p = POIS.find(pp => pp.x === x && pp.y === y); if (!p) return;
-      const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'image/*';
-      inp.onchange = async () => {
-        const f = inp.files && inp.files[0]; if (!f) return;
-        toast('사진 처리 중…');
-        let dataUrl;
-        try { dataUrl = await compressImage(f, 1000, 0.72); } catch (e) { toast('사진을 읽지 못했어요'); return; }
-        if (!p.pid) { pushHistory(); p.pid = 'ph_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5); }
-        if (!window.Festmap || !Festmap.withDb) { toast('저장 기능을 쓸 수 없어요(설정 확인)'); return; }
-        Festmap.withDb((db, fb) => db.collection('events').doc(SLUG).collection('live').doc('photo_' + p.pid)
-          .set({ img: dataUrl, updated: fb.firestore.FieldValue.serverTimestamp() })
-          .then(() => { photoCache[p.pid] = dataUrl; commitLive('사진 저장됨 ✓ 방문자에게 바로 반영'); map.closePopup(); })
-          .catch((e) => toast('사진 저장 실패: ' + ((e && e.code) || e))));
-      };
-      inp.click();
     };
 
     // 편집 모드: 지도 탭으로 사이트(POI) 추가 → pois.json 내보내기
@@ -775,7 +709,16 @@
         toast('추가됨: ' + name);
       });
       // 저장: 현재 핀/라벨 전체를 Firestore 저장본으로 올림 → 모든 사용자에게 즉시 반영
-      document.getElementById('editSave').onclick = () => { toast('저장 중…'); commitLive('저장됨 ✓ 모든 사용자에게 반영돼요'); };
+      document.getElementById('editSave').onclick = () => {
+        if (!window.Festmap || !Festmap.withDb) { toast('저장 기능을 쓸 수 없어요(설정 확인)'); return; }
+        toast('저장 중…');
+        Festmap.withDb((db, fb) => {
+          db.collection('events').doc(SLUG).collection('live').doc('pois')
+            .set({ pois: JSON.stringify(POIS), cats: JSON.stringify(CUSTOM_CATS), updated: fb.firestore.FieldValue.serverTimestamp() })
+            .then(() => toast('저장됨 ✓ 모든 사용자에게 반영돼요'))
+            .catch((e) => toast('저장 실패: ' + ((e && e.code) || e)));
+        });
+      };
       // 원본으로 되돌리기: 저장본 삭제 → 다음 로드부터 기본 pois.json 사용
       document.getElementById('editReset').onclick = () => {
         if (!Festmap || !Festmap.withDb) return;
