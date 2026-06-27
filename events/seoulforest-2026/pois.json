@@ -52,7 +52,7 @@
 {
 "id": "C3",
 "cat": "garden",
-"name": "Rethink Healthy",
+"name": "Rethink Healthy Garden",
 "x": 1567,
 "y": 497
 },
@@ -66,7 +66,7 @@
 {
 "id": "D3",
 "cat": "garden",
-"name": "피어나는 아침",
+"name": "피어나는 모든 것들의 아침",
 "x": 891,
 "y": 533
 },
@@ -164,7 +164,7 @@
 {
 "id": "C1",
 "cat": "garden",
-"name": "창사원",
+"name": "창사원(蒼簡園)",
 "x": 1784,
 "y": 652
 },
@@ -199,7 +199,7 @@
 {
 "id": "D1",
 "cat": "garden",
-"name": "매충정원·숲의 출발선",
+"name": "매(梅)충정원·숲의 출발선",
 "x": 1869,
 "y": 856
 },
@@ -220,7 +220,7 @@
 {
 "id": "C21",
 "cat": "garden",
-"name": "숨 쉬는 땅",
+"name": "숨 쉬는 땅, 깨어나는 정원",
 "x": 1078,
 "y": 942
 },
@@ -262,7 +262,7 @@
 {
 "id": "C28",
 "cat": "garden",
-"name": "Spicy Noodles",
+"name": "Spicy Happiness In Noodles",
 "x": 1273,
 "y": 1062
 },
@@ -297,21 +297,21 @@
 {
 "id": "C31",
 "cat": "garden",
-"name": "우리강산 푸르게",
+"name": "우리강산 푸르게 푸르게 정원",
 "x": 1388,
 "y": 1157
 },
 {
 "id": "K7",
 "cat": "garden",
-"name": "숲으로의 초대",
+"name": "숲으로의 초대(수직정원)",
 "x": 1920,
 "y": 1175
 },
 {
 "id": "C25",
 "cat": "garden",
-"name": "우리 홍련의 숲",
+"name": "잇다, 우리 홍련(紅蓮)의 숲",
 "x": 1205,
 "y": 1196
 },
@@ -374,7 +374,7 @@
 {
 "id": "D9",
 "cat": "garden",
-"name": "다육류의 정경",
+"name": "다육류(類)의 정경",
 "x": 1177,
 "y": 1028
 },
@@ -395,7 +395,7 @@
 {
 "id": "C29",
 "cat": "garden",
-"name": "K-Beauty Garden",
+"name": "K-Beauty Garden & Pavilion",
 "x": 1413,
 "y": 737
 },
@@ -556,6 +556,7 @@
 "y": 541
 },
 {
+"id": "J5",
 "cat": "garden",
 "name": "포켓몬 시크릿 포레스트",
 "x": 510,
