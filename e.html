@@ -625,11 +625,11 @@
     map.on('zoom zoomend', scaleLabels);
     function renderLabels() {
       labelLayer.clearLayers();
-      if (!EDIT) return;   // 일반 모드: 텍스트는 이미지에 구워넣음(동적 렌더 안 함 → 줌 스케일 문제 없음)
-      // 편집 모드에서만: 위치 잡기용으로 표시(내보내기 → 이미지에 베이크)
+      // 담당자가 추가한 글자 라벨은 방문자에게도 표시(줌에 비례해 크기 조정).
+      // 편집 모드에선 탭하면 수정/삭제, 일반 방문자에겐 그냥 글자(클릭 비활성).
       POIS.filter(p => p.cat === 'label').forEach(p => {
-        const m = L.marker(poiLatLng(p), { icon: L.divIcon({ className: '', iconSize: [0, 0], html: '<div class="maplabel">' + escHtml(p.name) + '</div>' }), interactive: true, zIndexOffset: 350 }).addTo(labelLayer);
-        m.on('click', () => openPoi(p));
+        const m = L.marker(poiLatLng(p), { icon: L.divIcon({ className: '', iconSize: [0, 0], html: '<div class="maplabel">' + escHtml(p.name) + '</div>' }), interactive: EDIT, zIndexOffset: 350 }).addTo(labelLayer);
+        if (EDIT) m.on('click', () => openPoi(p));
       });
       scaleLabels();
     }
