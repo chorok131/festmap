@@ -226,7 +226,7 @@
 
     const map = L.map('map', { crs: L.CRS.Simple, minZoom: -6, maxZoom: 4, zoomControl: false, attributionControl: false, fadeAnimation: true, maxBoundsViscosity: 1.0 });
     const statusEl = document.getElementById('status');
-    const setStatus = (t, warn) => { statusEl.textContent = t; statusEl.classList.toggle('warn', !!warn); };
+    const setStatus = (t, warn) => { statusEl.style.display = ''; statusEl.textContent = t; statusEl.classList.toggle('warn', !!warn); };
 
     // ── 행사 전환: 제목 ▾ 누르면 다른 행사 선택 ──
     const eventMenu = document.getElementById('eventMenu');
@@ -834,6 +834,7 @@
     document.getElementById('navClose').onclick = () => {
       sharedXY = null; document.getElementById('navbar').classList.remove('on');
       document.getElementById('follow').classList.remove('navup');   // 카드 닫으면 버튼 원위치
+      statusEl.style.display = '';   // 흰 상태카드 복원
       if (sharedMarker) { map.removeLayer(sharedMarker); sharedMarker = null; }
     };
 
@@ -884,7 +885,7 @@
         saveFavs(); renderFavs();
       }
       updateSharedDist();
-      setStatus('친구가 공유한 위치를 저장했어요. "내 위치"를 누르면 둘 다 보이고 거리도 표시돼요.');
+      statusEl.style.display = 'none';   // 검은 카드(navbar)와 내용이 겹치니 흰 상태카드는 숨김 (setStatus가 불리면 자동으로 다시 뜸)
     }
 
     function onOrient(e) {
