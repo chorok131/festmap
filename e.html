@@ -74,6 +74,7 @@
       align-items: center; gap: 6px; border: 0; border-radius: 22px; padding: 11px 16px;
       background: #fff; color: #374151; font-size: 14px; font-weight: 700; box-shadow: 0 2px 10px rgba(0,0,0,.22); }
     #follow.on { background: #2563eb; color: #fff; }
+    #follow.navup { bottom: 108px; }   /* 공유받은 위치 카드가 떠 있을 때 그 위로 올려 안 가려지게 */
     #follow .ic { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
     .me { position: relative; width: 0; height: 0; }
     .me .cone { position: absolute; left: -60px; top: -60px; width: 120px; height: 120px;
@@ -820,10 +821,19 @@
     function updateSharedDist() {
       if (!sharedXY) return;
       const m = distMeters(sharedXY.x, sharedXY.y);
-      document.getElementById('navDist').textContent = m == null ? '내 위치 필요' : ('약 ' + m + 'm');
+      const el = document.getElementById('navDist');
+      if (m == null) {                       // 아직 내 위치 못 잡음 → 탭하면 위치 잡기 시작
+        el.textContent = '내 위치 필요';
+        el.style.cursor = 'pointer'; el.style.textDecoration = 'underline';
+        el.onclick = () => document.getElementById('follow').click();
+      } else {
+        el.textContent = '약 ' + m + 'm';
+        el.style.cursor = ''; el.style.textDecoration = ''; el.onclick = null;
+      }
     }
     document.getElementById('navClose').onclick = () => {
       sharedXY = null; document.getElementById('navbar').classList.remove('on');
+      document.getElementById('follow').classList.remove('navup');   // 카드 닫으면 버튼 원위치
       if (sharedMarker) { map.removeLayer(sharedMarker); sharedMarker = null; }
     };
 
@@ -866,6 +876,8 @@
       map.setView(poiLatLng(sharedXY), 1);
       document.getElementById('navName').textContent = '공유받은 위치' + ago;
       document.getElementById('navbar').classList.add('on');
+      document.getElementById('follow').classList.add('navup');   // 카드가 "내 위치" 버튼을 가리지 않게 위로
+
       // 받은 위치를 즐겨찾기처럼 고정 → 새로고침해도 남고, "내 위치"와 동시에 보임
       if (!isFav(sharedXY.x, sharedXY.y)) {
         favorites.push({ x: sharedXY.x, y: sharedXY.y, name: '공유받은 위치', cat: 'fav' });
