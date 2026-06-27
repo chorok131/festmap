@@ -218,7 +218,7 @@
     function undoEdit() {
       if (!EDIT || !editHistory.length) { toast('되돌릴 편집이 없어요'); return; }
       try { POIS = JSON.parse(editHistory.pop()); } catch (e) { return; }
-      refreshPois(); map.closePopup(); toast('실행취소 ↩︎ (' + editHistory.length + '단계 남음)');
+      refreshPois(); buildChips(); syncChips(); map.closePopup(); toast('실행취소 ↩︎ (' + editHistory.length + '단계 남음)');
     }
 
     const map = L.map('map', { crs: L.CRS.Simple, minZoom: -6, maxZoom: 4, zoomControl: false, attributionControl: false, fadeAnimation: true, maxBoundsViscosity: 1.0 });
@@ -703,7 +703,9 @@
         if (!name) return;
         pushHistory();
         POIS.push({ cat: editCat, name: name, x: x, y: y });
+        activeCats.add(editCat);        // 새 분류여도 핀이 바로 보이게
         refreshPois();
+        buildChips(); syncChips();      // 칩 바 즉시 갱신(새 분류 칩·개수 반영)
         toast('추가됨: ' + name);
       });
       // 저장: 현재 핀/라벨 전체를 Firestore 저장본으로 올림 → 모든 사용자에게 즉시 반영
