@@ -840,10 +840,10 @@
         + '&at=' + lastGPS.lat.toFixed(6) + ',' + lastGPS.lng.toFixed(6)
         + '&t=' + Date.now();
       const evName = (document.getElementById('title').textContent || '미니맵').replace(/\s*▾\s*$/, '');
-      const text = '📍 내 위치 — ' + evName + ' · 약도 위 실시간 지도 minimap.kr';
       Festmap.track('share_loc', { event: SLUG });
       if (navigator.share) {
-        navigator.share({ title: '내 위치', text, url }).catch(() => {});
+        // 링크(url)만 공유 → 카톡 등에서 카드 1개만 생성. (text에 주소를 넣으면 그 주소로 카드가 하나 더 생겨 메시지가 여러 개로 보임)
+        navigator.share({ title: evName + ' · 내 위치', url }).catch(() => {});
       } else if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(url).then(() => toast('위치 링크 복사됨 — 친구에게 붙여넣어 보내세요')).catch(() => prompt('이 링크를 복사해 보내세요', url));
       } else {
@@ -866,8 +866,13 @@
       map.setView(poiLatLng(sharedXY), 1);
       document.getElementById('navName').textContent = '공유받은 위치' + ago;
       document.getElementById('navbar').classList.add('on');
+      // 받은 위치를 즐겨찾기처럼 고정 → 새로고침해도 남고, "내 위치"와 동시에 보임
+      if (!isFav(sharedXY.x, sharedXY.y)) {
+        favorites.push({ x: sharedXY.x, y: sharedXY.y, name: '공유받은 위치', cat: 'fav' });
+        saveFavs(); renderFavs();
+      }
       updateSharedDist();
-      setStatus('친구가 공유한 위치예요. "내 위치"를 누르면 여기까지 거리가 표시돼요.');
+      setStatus('친구가 공유한 위치를 저장했어요. "내 위치"를 누르면 둘 다 보이고 거리도 표시돼요.');
     }
 
     function onOrient(e) {
