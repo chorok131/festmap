@@ -212,9 +212,9 @@
     const SLUG = new URLSearchParams(location.search).get('event');
     if (!SLUG) { location.replace('index.html'); }
     const BASE = `events/${SLUG}/`;
-    let EDIT = false;                                                        // 편집 모드 — ?edit=<키>가 edit.json의 키와 일치할 때만 (비공개 링크)
+    let EDIT = false;                                                        // 편집 모드 — Firebase Auth 소유자 로그인 성공 시에만 true
     let LIVE_EDIT = false;                                                    // 셀프 편집(Firestore 저장본 사용) 활성 — georef "liveEdit":true
-    const EDIT_PARAM = new URLSearchParams(location.search).get('edit');
+    const EDIT_PARAM = new URLSearchParams(location.search).get('edit');      // 존재하면 관리자 로그인 진입점 노출(값은 무의미, 이제 비밀 아님)
     let editCat = 'garden';
     let editHistory = [];                   // 편집 실행취소 스택(POIS 스냅샷). 추가/수정/삭제 직전에 push.
     function pushHistory() { try { editHistory.push(JSON.stringify(POIS)); if (editHistory.length > 60) editHistory.shift(); } catch (e) {} }
@@ -464,15 +464,13 @@
       Festmap.track('open', { event: SLUG });
       pinLayer.addTo(map); favLayer.addTo(map); labelLayer.addTo(map);   // 레이어는 항상
       loadFavs(); renderFavs();                   // 저장된 즐겨찾기 복원
-      // 셀프 편집: 행사가 켰을 때만(liveEdit). 편집 모드는 ?edit=<키>가 edit.json의 키와 일치해야 진입.
+      // 셀프 편집: 행사가 켰을 때만(liveEdit). 편집(관리자)은 Firebase Auth 소유자 로그인으로만 진입.
+      // (구 ?edit=<키> 방식은 정적+무인증이라 실제 경계가 아니었음 → 로그인+규칙 owner 대조로 대체)
       LIVE_EDIT = !!g.liveEdit;
-      if (EDIT_PARAM && LIVE_EDIT) {
-        try { const ek = await (await fetch(BASE + 'edit.json', { cache: 'no-store' })).json();
-              EDIT = !!(ek && ek.key && EDIT_PARAM === ek.key); } catch (e) { EDIT = false; }
-      }
       await setupPois();                          // 핀/검색 (pois.json + 셀프 편집 저장본)
-      setupEdit();                                // 편집 모드면 추가/저장 도구
       showShared();                               // 공유받은 위치(?at=) 있으면 표시
+      // ?edit 파라미터가 있고 행사가 셀프편집을 켰으면 관리자 로그인 진입점 노출(뷰어에겐 안 보임)
+      if (EDIT_PARAM != null && LIVE_EDIT) initAdminAuth();
     })();
 
     // ───────────────── POI: 시설 찾기 + 길찾기 ─────────────────
@@ -676,6 +674,65 @@
       refreshPois(); map.closePopup(); toast('삭제됨 — 다 되면 💾 저장');
     };
 
+    // ───────────── 관리자 인증 (Firebase Auth 소유자 로그인) ─────────────
+    // 소유권 = 규칙이 소유자에게만 read 허용하는 private/meta 를 읽을 수 있느냐로 판정.
+    // (읽기 성공 = 소유자. UID 목록을 클라이언트에 노출하지 않음.)
+    let adminPanel = null, gAuth = null, gFb = null;
+    function adminBox() {
+      if (adminPanel) return adminPanel;
+      const d = document.createElement('div');
+      d.id = 'adminPanel';
+      d.style.cssText = 'position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:2000;background:#fff;border:1px solid #e5e7eb;border-radius:14px;box-shadow:0 6px 30px rgba(0,0,0,.18);padding:14px 16px;max-width:340px;width:calc(100% - 32px);font-size:13px;line-height:1.5';
+      document.body.appendChild(d); adminPanel = d; return d;
+    }
+    function adminHide() { if (adminPanel) adminPanel.style.display = 'none'; }
+    function initAdminAuth() {
+      if (!window.Festmap || !Festmap.withAuth) { return; }
+      const box = adminBox();
+      box.innerHTML = '<div style="font-weight:700;margin-bottom:6px">관리자 로그인</div><div style="color:#6b7280">불러오는 중…</div>';
+      Festmap.withAuth((auth, fb) => {
+        if (!auth) { box.innerHTML = '<div style="color:#dc2626">인증 모듈을 불러오지 못했어요. 잠시 후 새로고침해 주세요.</div>'; return; }
+        gAuth = auth; gFb = fb;
+        auth.onAuthStateChanged((user) => { user ? onSignedIn(user) : showLoginPrompt(); });
+      });
+    }
+    function showLoginPrompt() {
+      const box = adminBox(); box.style.display = '';
+      box.innerHTML = '<div style="font-weight:700;margin-bottom:4px">관리자 로그인</div>'
+        + '<div style="color:#6b7280;margin-bottom:10px">이 행사의 소유자만 편집할 수 있어요. Google 계정으로 로그인하세요.</div>'
+        + '<button id="gLogin" style="width:100%;border:0;border-radius:9px;padding:10px;background:#2563eb;color:#fff;font-weight:700;font-size:14px;cursor:pointer">Google로 로그인</button>';
+      document.getElementById('gLogin').onclick = () => {
+        const provider = new gFb.auth.GoogleAuthProvider();
+        gAuth.signInWithPopup(provider).catch((e) => toast('로그인 실패: ' + ((e && e.code) || e)));
+      };
+    }
+    function onSignedIn(user) {
+      const box = adminBox();
+      // 소유권 확인: private/meta 읽기 성공 → 소유자
+      Festmap.withDb((db) => {
+        db.collection('events').doc(SLUG).collection('private').doc('meta').get()
+          .then((s) => { s.exists ? grantEdit(user) : denyEdit(user); })
+          .catch(() => denyEdit(user));   // permission-denied = 소유자 아님(또는 미시드)
+      });
+    }
+    function grantEdit(user) {
+      EDIT = true;
+      adminHide();
+      setupEdit();
+      toast('관리자 모드 ✓ ' + (user.email || ''));
+    }
+    function denyEdit(user) {
+      EDIT = false;
+      const box = adminBox(); box.style.display = '';
+      box.innerHTML = '<div style="font-weight:700;margin-bottom:4px">소유자 계정이 아니에요</div>'
+        + '<div style="color:#6b7280;margin-bottom:8px">이 계정(' + escHtml(user.email || '') + ')은 이 행사의 소유자로 등록돼 있지 않습니다. 아래 UID를 소유자로 등록하면 편집할 수 있어요.</div>'
+        + '<code style="display:block;background:#f3f4f6;border-radius:6px;padding:8px;font-size:12px;word-break:break-all;margin-bottom:8px">' + escHtml(user.uid) + '</code>'
+        + '<div style="display:flex;gap:8px"><button id="uidCopy" style="flex:1;border:0;border-radius:8px;padding:8px;background:#111;color:#fff;font-weight:600;cursor:pointer">UID 복사</button>'
+        + '<button id="gLogout" style="flex:1;border:1px solid #e5e7eb;border-radius:8px;padding:8px;background:#fff;color:#111;font-weight:600;cursor:pointer">로그아웃</button></div>';
+      document.getElementById('uidCopy').onclick = () => { navigator.clipboard && navigator.clipboard.writeText(user.uid); toast('UID 복사됨'); };
+      document.getElementById('gLogout').onclick = () => gAuth.signOut();
+    }
+
     // 편집 모드: 지도 탭으로 사이트(POI) 추가 → pois.json 내보내기
     function setupEdit() {
       if (!EDIT) return;
@@ -732,9 +789,11 @@
             .catch((e) => toast('되돌리기 실패: ' + ((e && e.code) || e)));
         });
       };
-      // 리포트: 같은 편집키로 라이브 리포트(기간 선택) 열기
-      document.getElementById('editReport').onclick = () => {
-        window.open('report.html?event=' + encodeURIComponent(SLUG) + '&key=' + encodeURIComponent(EDIT_PARAM), '_blank');
+      // 리포트: 라이브 리포트(기간 선택) 열기. 리포트는 읽기 전용이라 edit.json 키 모델 유지.
+      document.getElementById('editReport').onclick = async () => {
+        let key = '';
+        try { key = ((await (await fetch(BASE + 'edit.json', { cache: 'no-store' })).json()) || {}).key || ''; } catch (e) {}
+        window.open('report.html?event=' + encodeURIComponent(SLUG) + '&key=' + encodeURIComponent(key), '_blank');
       };
       // 실행취소: 버튼 + Ctrl/⌘+Z
       document.getElementById('editUndo').onclick = undoEdit;

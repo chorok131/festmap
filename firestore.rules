@@ -3,15 +3,20 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // ─────────────────────────────────────────────────────────────
-    // 보안 모델 메모 (2026-07 개정)
-    //  이 앱은 정적 호스팅(GitHub Pages, 리포 루트 서빙) + Firestore 구조라,
-    //  클라이언트가 쓰기에 쓰는 어떤 자격증명도 공개될 수밖에 없다
-    //  (edit.json의 편집키도 minimap.kr에서 그대로 조회됨 = 실제 경계 아님).
-    //  → "키 보유자만 쓰기/읽기"의 airtight 보장은 Firebase Auth(소유자 로그인)나
-    //    Cloud Function 없이는 불가. 여기 규칙의 목표는 '완전 차단'이 아니라
-    //    ① 개인정보(세션 원본) 읽기 차단  ② 대용량 쓰기로 인한 비용·저장소 남용 차단
-    //    ③ 삭제 남용 차단  ④ 향후 인증용 private 경로 확보.
+    // 보안 모델 메모 (2026-07 개정 · Auth 전환)
+    //  편집(셀프편집 live 쓰기)은 Firebase Auth 소유자 로그인으로만 허용한다.
+    //  소유자 = events/{slug}/private/meta 문서의 owners 배열에 uid가 든 계정.
+    //  이 배열은 클라이언트가 못 쓰고(콘솔에서만 시드), 소유자 본인만 읽을 수 있어
+    //  "내가 소유자냐"를 읽기 성공 여부로 판정한다(uid 목록 비노출).
+    //  ─ 분석(sessions/daily)은 익명 방문자 핑이라 로그인 없이 쓰기 유지.
+    //  ─ 목표: ① 개인정보(세션 원본) 읽기 차단 ② 편집 쓰기=소유자 전용(반달리즘 차단)
+    //         ③ 대용량/삭제 남용 차단 ④ 분석은 익명 유지.
     // ─────────────────────────────────────────────────────────────
+    function isOwner(slug) {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/events/$(slug)/private/meta)
+        && request.auth.uid in get(/databases/$(database)/documents/events/$(slug)/private/meta).data.owners;
+    }
 
     // 원천 세션 기록: 개인 동선 원본(D단계). 쓰기만, 읽기/삭제 영구 차단.
     match /events/{slug}/sessions/{sid} {
@@ -28,21 +33,23 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // 셀프 편집 저장본(핀/라벨): 뷰어가 읽어야 해 공개 읽기. 쓰기 경계는 정적+무인증
-    // 구조상 규칙만으로 airtight 불가(위 메모) → 대용량 쓰기 남용만 차단한다.
-    // pois/cats는 JSON 문자열 1개씩이므로(정상값은 수 KB) 문자열 길이 상한을 둔다.
-    // 훼손 시엔 e.html '↩︎ 원본'(저장본 삭제 → 리포의 pois.json 원본 복귀)으로 복구.
+    // 셀프 편집 저장본(핀/라벨): 뷰어가 읽어야 해 공개 읽기.
+    // 쓰기·삭제는 소유자(로그인)만 → 반달리즘 차단. pois는 JSON 문자열(정상 수 KB)이라 길이 상한 유지.
     match /events/{slug}/live/{doc} {
       allow read: if true;
-      allow create, update: if request.resource.data.pois is string
+      allow create, update: if isOwner(slug)
+                             && request.resource.data.pois is string
                              && request.resource.data.pois.size() < 300000;
-      allow delete: if true;   // '원본 되돌리기'(무인증 편집자도 실행) — 복구 가능해 허용
+      allow delete: if isOwner(slug);   // '원본 되돌리기'도 소유자만
     }
 
-    // 향후 인증(Firebase Auth 소유자 로그인) 전환 시 관리자/키를 둘 자리.
-    // 지금은 클라이언트 접근 완전 차단(규칙 get()으로 서버측 대조에만 사용).
+    // 소유자 등록부(owners: [uid,...]). 소유자 본인만 읽기(=소유권 자기확인용).
+    // 쓰기는 클라이언트 전면 차단 → 소유자 추가/변경은 Firebase 콘솔(관리자)에서만.
     match /events/{slug}/private/{doc} {
-      allow read, write: if false;
+      allow read: if request.auth != null
+                  && resource != null
+                  && request.auth.uid in resource.data.owners;
+      allow write: if false;
     }
   }
 }
