@@ -106,22 +106,6 @@
       if (o && o.sampleSec > 0) pingMs = o.sampleSec * 1000;
       if (o && o.cellPx > 0) cellPx = o.cellPx;
     },
-    // 편집자(소유자) 인증. 뷰어는 호출 안 함 → 익명 유지. 소유자 로그인에만 사용.
-    // Auth SDK를 lazy 로드하고 firebase.auth()를 콜백으로 전달(같은 default 앱 → firestore가 토큰 자동 첨부).
-    withAuth: function (cb) {
-      if (!cfg || !cfg.apiKey) return cb && cb(null);
-      var b = 'https://www.gstatic.com/firebasejs/10.12.2/';
-      function go() {
-        try {
-          if (!global.firebase.apps.length) global.firebase.initializeApp(cfg);
-          cb(global.firebase.auth(), global.firebase);
-        } catch (e) { cb && cb(null); }
-      }
-      if (global.firebase && global.firebase.auth) return go();
-      function loadAuth() { inject(b + 'firebase-auth-compat.js', go); }
-      if (global.firebase && global.firebase.apps) loadAuth();   // app-compat 이미 로드됨(withDb 경유)
-      else inject(b + 'firebase-app-compat.js', loadAuth);
-    },
     // 편집 모드 등에서 Firestore가 필요할 때: SDK 로드(재사용) 후 db 전달. (없으면 콜백 미호출)
     withDb: function (cb) {
       if (!cfg || !cfg.apiKey) return;

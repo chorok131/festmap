@@ -134,9 +134,10 @@
       let g;
       try { g = await (await fetch(BASE + 'georef.json')).json(); }
       catch (e) { document.body.innerHTML = '<p style="padding:40px;font-family:sans-serif">행사 데이터를 불러올 수 없어요.</p>'; return; }
-      // 편집키가 맞으면 라이브(실데이터), 아니면 데모
+      // 편집키가 맞으면 라이브(실데이터), 아니면 데모.
+      // 검증 = Firestore private/handshake 쓰기 성공 여부(규칙이 서버측 대조 — 키는 클라로 안 내려옴)
       let live = false;
-      if (KEY) { try { const ek = await (await fetch(BASE + 'edit.json', { cache:'no-store' })).json(); live = !!(ek && ek.key && KEY === ek.key); } catch (e) {} }
+      if (KEY) live = await probeEditKey();
       document.getElementById('genMeta').textContent = '생성일 ' + fmtDate(new Date());
       if (live) initLive(g); else initDemo(g);
     })();
@@ -205,6 +206,20 @@
       });
       window.addEventListener('resize', () => { if (lastAgg) renderHeat(lastAgg, img); });
       run();
+    }
+
+    // 편집키 서버검증: handshake 쓰기(k=키, t=서버시각)가 규칙을 통과하면 올바른 키
+    function probeEditKey() {
+      return new Promise((resolve) => {
+        if (!window.Festmap || !Festmap.withDb) return resolve(false);
+        let done = false; const to_ = setTimeout(() => { if (!done) { done = true; resolve(false); } }, 6000);
+        Festmap.withDb((db, fb) => {
+          db.collection('events').doc(SLUG).collection('private').doc('handshake')
+            .set({ k: KEY, t: fb.firestore.FieldValue.serverTimestamp() })
+            .then(() => { if (!done) { done = true; clearTimeout(to_); resolve(true); } })
+            .catch(() => { if (!done) { done = true; clearTimeout(to_); resolve(false); } });
+        });
+      });
     }
 
     function queryRange(from, to) {

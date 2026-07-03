@@ -3,19 +3,20 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // ─────────────────────────────────────────────────────────────
-    // 보안 모델 메모 (2026-07 개정 · Auth 전환)
-    //  편집(셀프편집 live 쓰기)은 Firebase Auth 소유자 로그인으로만 허용한다.
-    //  소유자 = events/{slug}/private/meta 문서의 owners 배열에 uid가 든 계정.
-    //  이 배열은 클라이언트가 못 쓰고(콘솔에서만 시드), 소유자 본인만 읽을 수 있어
-    //  "내가 소유자냐"를 읽기 성공 여부로 판정한다(uid 목록 비노출).
-    //  ─ 분석(sessions/daily)은 익명 방문자 핑이라 로그인 없이 쓰기 유지.
-    //  ─ 목표: ① 개인정보(세션 원본) 읽기 차단 ② 편집 쓰기=소유자 전용(반달리즘 차단)
-    //         ③ 대용량/삭제 남용 차단 ④ 분석은 익명 유지.
+    // 보안 모델 메모 (2026-07 개정 · 비밀 편집링크 서버검증)
+    //  편집(셀프편집 live 쓰기)은 "비밀 편집링크(?edit=<키>)"로만 허용하되,
+    //  키 대조를 클라이언트가 아니라 이 규칙(서버)이 한다:
+    //  - 진짜 키 = events/{slug}/private/meta.editKey (클라 읽기/쓰기 불가, 콘솔에서만 시드)
+    //  - 편집 저장 = 배치 쓰기: private/handshake(k=키, t=서버시각) + live/pois 동시 커밋
+    //  - handshake 쓰기 자체가 k==editKey 일 때만 허용되고, live 쓰기는 "같은 배치에서
+    //    handshake가 방금 쓰였는지"(getAfter t==request.time)를 확인 → 키 틀리면 배치 전체 거부
+    //  - 과거 handshake 재사용(리플레이)은 t==request.time 조건이 차단
+    //  → 키가 클라이언트로 내려가는 일이 없어(구 edit.json 폐기) 공개 리포/사이트에 안 샌다.
+    //  ─ 분석(sessions/daily)은 익명 방문자 핑이라 키 없이 쓰기 유지.
     // ─────────────────────────────────────────────────────────────
-    function isOwner(slug) {
-      return request.auth != null
-        && exists(/databases/$(database)/documents/events/$(slug)/private/meta)
-        && request.auth.uid in get(/databases/$(database)/documents/events/$(slug)/private/meta).data.owners;
+    // "이 요청이 올바른 키의 handshake와 같은 배치인가"
+    function keyBatch(slug) {
+      return getAfter(/databases/$(database)/documents/events/$(slug)/private/handshake).data.t == request.time;
     }
 
     // 원천 세션 기록: 개인 동선 원본(D단계). 쓰기만, 읽기/삭제 영구 차단.
@@ -34,22 +35,23 @@ service cloud.firestore {
     }
 
     // 셀프 편집 저장본(핀/라벨): 뷰어가 읽어야 해 공개 읽기.
-    // 쓰기·삭제는 소유자(로그인)만 → 반달리즘 차단. pois는 JSON 문자열(정상 수 KB)이라 길이 상한 유지.
+    // 쓰기·삭제는 올바른 편집키의 배치(keyBatch)만 → 반달리즘 차단. pois 길이 상한 유지.
     match /events/{slug}/live/{doc} {
       allow read: if true;
-      allow create, update: if isOwner(slug)
+      allow create, update: if keyBatch(slug)
                              && request.resource.data.pois is string
                              && request.resource.data.pois.size() < 300000;
-      allow delete: if isOwner(slug);   // '원본 되돌리기'도 소유자만
+      allow delete: if keyBatch(slug);   // '원본 되돌리기'도 키 배치만
     }
 
-    // 소유자 등록부(owners: [uid,...]). 소유자 본인만 읽기(=소유권 자기확인용).
-    // 쓰기는 클라이언트 전면 차단 → 소유자 추가/변경은 Firebase 콘솔(관리자)에서만.
+    // 비공개 영역: meta(진짜 키 보관)는 클라 접근 전면 차단(콘솔에서만 시드).
+    // handshake만 "정답 키를 아는 요청"에 한해 쓰기 허용 — 이 쓰기의 성공 여부가 곧 키 검증.
+    // (읽기 차단이라 키가 밖으로 새는 경로 없음. 오답 시도는 거부될 뿐 비용·저장 없음.)
     match /events/{slug}/private/{doc} {
-      allow read: if request.auth != null
-                  && resource != null
-                  && request.auth.uid in resource.data.owners;
-      allow write: if false;
+      allow read, delete: if false;
+      allow create, update: if doc == 'handshake'
+        && request.resource.data.t == request.time
+        && request.resource.data.k == get(/databases/$(database)/documents/events/$(slug)/private/meta).data.editKey;
     }
   }
 }
