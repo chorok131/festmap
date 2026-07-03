@@ -81,6 +81,7 @@
       <span>~</span>
       <input type="date" id="to" />
       <button class="run" id="run">조회</button>
+      <span id="threshWrap">표시 <input type="range" id="thresh" min="1" max="5" value="3" style="vertical-align:middle;accent-color:var(--blue)" /> <b id="threshVal">3</b>명 이상 칸</span>
       <span class="note" id="rangeNote"></span>
     </div>
 
@@ -178,8 +179,8 @@
       document.getElementById('liveTrend').style.display = '';
       document.getElementById('controls').classList.add('on');
 
-      // 기본 기간: 최근 30일
-      const today = new Date(), ago = new Date(today.getTime() - 29*864e5);
+      // 기본 기간: 최근 90일 (베타 초기엔 데이터가 산발적이라 전체를 한 번에 응축해 보는 게 기본)
+      const today = new Date(), ago = new Date(today.getTime() - 89*864e5);
       document.getElementById('from').value = isoDay(ago);
       document.getElementById('to').value = isoDay(today);
 
@@ -196,7 +197,13 @@
         document.getElementById('rangeNote').textContent = from + ' ~ ' + to + ' · ' + agg.byDay.length + '일 집계';
       }
       document.getElementById('run').onclick = run;
-      window.addEventListener('resize', () => { if (lastAgg) drawHeatGrid(img, lastAgg.cells, lastAgg.hc || 1); });
+      const threshEl = document.getElementById('thresh');
+      threshEl.addEventListener('input', () => {
+        liveThresh = +threshEl.value;
+        document.getElementById('threshVal').textContent = liveThresh;
+        if (lastAgg) renderHeat(lastAgg, img);
+      });
+      window.addEventListener('resize', () => { if (lastAgg) renderHeat(lastAgg, img); });
       run();
     }
 
@@ -224,7 +231,7 @@
       });
     }
 
-    let lastAgg = null;
+    let lastAgg = null, liveThresh = 3;
     function renderLive(agg, img) {
       lastAgg = agg;
       document.getElementById('cards').innerHTML = [
@@ -234,15 +241,26 @@
         ['집계된 날', agg.byDay.length + '<small>일</small>']
       ].map(c => `<div class="card"><div class="k">${c[0]}</div><div class="v">${c[1]}</div></div>`).join('');
 
-      const shown = drawHeatGrid(img, agg.cells, agg.hc || 1);
-      document.getElementById('heatNote').textContent = shown
-        ? '※ 익명 보호: 3명 미만이 지나간 칸은 표시하지 않습니다.'
-        : '표시할 만큼 데이터가 충분하지 않아요(익명 보호 기준 3명 미만 칸 제외).';
+      renderHeat(agg, img);
 
       const maxV = Math.max(1, ...agg.byDay.map(d => d.opens));
       document.getElementById('trend').innerHTML = agg.byDay.length
         ? agg.byDay.map(d => `<div class="h"><div class="b" style="height:${Math.round(d.opens/maxV*100)}%"></div><div class="lab">${(d.day||'').slice(5)}</div></div>`).join('')
         : '<div style="color:#9ca3af;font-size:13px;padding:24px 0">이 기간에 집계된 데이터가 없어요.</div>';
+    }
+
+    // 히트맵 + 안내문 (임계값 슬라이더·리사이즈에서 재호출)
+    function renderHeat(agg, img) {
+      const { shown, hidden } = drawHeatGrid(img, agg.cells, agg.hc || 1, liveThresh);
+      const note = document.getElementById('heatNote');
+      if (shown) {
+        note.textContent = `표시 ${shown}칸 · 기준(${liveThresh}명) 미만 숨김 ${hidden}칸`
+          + (liveThresh < 3 ? ' · ⚠️ 3명 미만 표시는 운영자 내부 확인용 — 외부 공유 리포트에는 3명 이상 기준을 사용하세요.' : ' · 익명 보호: 기준 미만 칸은 표시하지 않습니다.');
+      } else if (hidden) {
+        note.textContent = `이 기간에 기록된 칸이 ${hidden}개 있지만 전부 ${liveThresh}명 미만이라 숨겨졌어요 — 왼쪽 위 임계값을 낮추면 내부 확인용으로 볼 수 있습니다.`;
+      } else {
+        note.textContent = '이 기간에 집계된 위치 데이터가 없어요.';
+      }
     }
 
     // ── 색/도형 헬퍼 ──
@@ -254,24 +272,24 @@
     }
     function roundRect(ctx,x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
 
-    // 라이브: 격자 히트맵 (h_ 셀 카운트 → 블록). 임계값 미만 칸은 숨김(개인정보 원칙). 표시 칸 있으면 true 반환.
-    function drawHeatGrid(img, cells, hc) {
-      const w = img.clientWidth, h = img.clientHeight; if (!w || !h) return false;
+    // 라이브: 격자 히트맵 (h_ 셀 카운트 → 블록). 임계값(기본 3, 익명 원칙) 미만 칸은 숨김.
+    function drawHeatGrid(img, cells, hc, thresh) {
+      const w = img.clientWidth, h = img.clientHeight; if (!w || !h) return { shown: 0, hidden: 0 };
       const cv = document.getElementById('heat'); cv.width = w; cv.height = h;
       const ctx = cv.getContext('2d'); ctx.clearRect(0, 0, w, h);
       const cwx = Math.max(2, hc * w / img.naturalWidth), cwy = Math.max(2, hc * h / img.naturalHeight);
-      const THRESH = 3;
-      let max = 1, shown = 0;
+      let max = 1, shown = 0, hidden = 0;
       for (const k in cells) max = Math.max(max, cells[k]);
       for (const k in cells) {
-        const c = cells[k]; if (c < THRESH) continue;
+        const c = cells[k]; if (c < thresh) { hidden++; continue; }
         const [cx, cy] = k.split('_').map(Number);
         const [r, g, b] = gradAt((c-1) / Math.max(1, max-1));
         ctx.fillStyle = `rgba(${r},${g},${b},0.62)`;
         roundRect(ctx, cx*cwx + 1, cy*cwy + 1, cwx - 2, cwy - 2, 4); ctx.fill();
+        ctx.strokeStyle = 'rgba(30,58,138,0.85)'; ctx.lineWidth = 1.5; ctx.stroke();
         shown++;
       }
-      return shown > 0;
+      return { shown, hidden };
     }
 
     // 데모: 부드러운 히트맵 (points 기반)
