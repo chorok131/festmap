@@ -659,7 +659,7 @@
         btns = `<button onclick="window._toggleFav(${p.x},${p.y})" style="${bstyle};display:flex;align-items:center;justify-content:center;gap:5px;background:${faved ? '#e5e7eb' : '#f59e0b'};color:${faved ? '#111' : '#fff'}">${svgIcon('star', 15)} ${faved ? '즐겨찾기 해제' : '즐겨찾기에 추가'}</button>`;
       }
       const html = `<div style="min-width:150px">
-        <div style="display:flex;align-items:center;gap:6px;font-weight:700;font-size:14px;margin-bottom:6px"><span style="color:${c.color || '#2563eb'}">${svgIcon(c.icon || 'pin', 18)}</span> <span>${p.name || c.label || ''}${p.id ? ' <span style="color:#9ca3af;font-weight:400">(' + p.id + ')</span>' : ''}</span></div>
+        <div style="display:flex;align-items:center;gap:6px;font-weight:700;font-size:14px;margin-bottom:6px"><span style="color:${c.color || '#2563eb'}">${svgIcon(c.icon || 'pin', 18)}</span> <span>${escHtml(p.name || c.label || '')}${p.id ? ' <span style="color:#9ca3af;font-weight:400">(' + escHtml(p.id) + ')</span>' : ''}</span></div>
         ${distLine(p.x, p.y)}${btns}
       </div>`;
       L.popup({ closeButton: true, autoPan: true }).setLatLng(poiLatLng(p)).setContent(html).openOn(map);
@@ -802,7 +802,7 @@
           const c = CAT[p.cat] || {};
           return `<div class="row" data-x="${p.x}" data-y="${p.y}">
             <span class="ic" style="color:${c.color || '#2563eb'}">${svgIcon(c.icon || 'pin', 18)}</span>
-            <span>${p.name || c.label || ''}${p.id ? ' <span class="sub">' + p.id + '</span>' : ''}</span></div>`;
+            <span>${escHtml(p.name || c.label || '')}${p.id ? ' <span class="sub">' + escHtml(p.id) + '</span>' : ''}</span></div>`;
         }).join('') || '<div class="row"><span class="sub">검색 결과가 없어요</span></div>';
         res.classList.add('on');
         res.querySelectorAll('.row[data-x]').forEach(row => {

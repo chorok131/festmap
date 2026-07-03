@@ -5,6 +5,10 @@
 /tmp/
 *.log
 
+# ── 내부 노트(전략·로드맵) — 리포 루트가 그대로 minimap.kr에 서빙되므로 비공개 유지 ──
+RESUME.md
+TODO.md
+
 # ── Flutter 빌드 산출물 (용량 큼, 재생성 가능) ──
 app/build/
 app/.dart_tool/

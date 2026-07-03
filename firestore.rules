@@ -2,24 +2,47 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // 원천 세션 기록: 누구나 자기 것 쓰기만, 읽기/삭제 차단 (D단계 동선 원본)
+    // ─────────────────────────────────────────────────────────────
+    // 보안 모델 메모 (2026-07 개정)
+    //  이 앱은 정적 호스팅(GitHub Pages, 리포 루트 서빙) + Firestore 구조라,
+    //  클라이언트가 쓰기에 쓰는 어떤 자격증명도 공개될 수밖에 없다
+    //  (edit.json의 편집키도 minimap.kr에서 그대로 조회됨 = 실제 경계 아님).
+    //  → "키 보유자만 쓰기/읽기"의 airtight 보장은 Firebase Auth(소유자 로그인)나
+    //    Cloud Function 없이는 불가. 여기 규칙의 목표는 '완전 차단'이 아니라
+    //    ① 개인정보(세션 원본) 읽기 차단  ② 대용량 쓰기로 인한 비용·저장소 남용 차단
+    //    ③ 삭제 남용 차단  ④ 향후 인증용 private 경로 확보.
+    // ─────────────────────────────────────────────────────────────
+
+    // 원천 세션 기록: 개인 동선 원본(D단계). 쓰기만, 읽기/삭제 영구 차단.
     match /events/{slug}/sessions/{sid} {
       allow create, update: if true;
       allow read, delete: if false;
     }
 
-    // 일별 집계 숫자: 공개 읽기 가능(민감X), 증가 쓰기 허용
+    // 일별 집계: 익명 카운터(opens/locates/격자 h_*). 개인정보 아님 → 공개 읽기 유지
+    // (report.html이 클라이언트에서 직접 조회). 쓰기는 익명 방문자 핑에 필요해 열되,
+    // 삭제는 차단해 집계 데이터 통삭제 남용을 막는다.
     match /events/{slug}/daily/{day} {
       allow read: if true;
-      allow write: if true;
+      allow create, update: if true;
+      allow delete: if false;
     }
 
-    // 셀프 편집 저장본(핀/라벨): 공개 읽기(뷰어 사용), 쓰기 허용.
-    // 운영: 비공개 편집링크(?edit=<키>)로만 편집 UI 진입 + "원본 되돌리기"로 복구.
-    // e.html 저장 경로: events/{slug}/live/pois
+    // 셀프 편집 저장본(핀/라벨): 뷰어가 읽어야 해 공개 읽기. 쓰기 경계는 정적+무인증
+    // 구조상 규칙만으로 airtight 불가(위 메모) → 대용량 쓰기 남용만 차단한다.
+    // pois/cats는 JSON 문자열 1개씩이므로(정상값은 수 KB) 문자열 길이 상한을 둔다.
+    // 훼손 시엔 e.html '↩︎ 원본'(저장본 삭제 → 리포의 pois.json 원본 복귀)으로 복구.
     match /events/{slug}/live/{doc} {
       allow read: if true;
-      allow write: if true;
+      allow create, update: if request.resource.data.pois is string
+                             && request.resource.data.pois.size() < 300000;
+      allow delete: if true;   // '원본 되돌리기'(무인증 편집자도 실행) — 복구 가능해 허용
+    }
+
+    // 향후 인증(Firebase Auth 소유자 로그인) 전환 시 관리자/키를 둘 자리.
+    // 지금은 클라이언트 접근 완전 차단(규칙 get()으로 서버측 대조에만 사용).
+    match /events/{slug}/private/{doc} {
+      allow read, write: if false;
     }
   }
 }
