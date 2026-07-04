@@ -3,14 +3,14 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>행사 지도 제작 문의 · 미니맵</title>
-  <meta name="description" content="이미 있는 행사 약도(PDF·이미지)를 주시면 약도 위 실시간 위치 지도로 제작해 드립니다." />
+  <title>행사 지도 제작 가격 · 문의 | 미니맵</title>
+  <meta name="description" content="이미 있는 행사 약도(PDF·이미지)를 주시면 약도 위 실시간 위치 지도로 제작해 드립니다. 라이트 30만원 · 동선 리포트 포함 스탠다드 60만원(베타 특가) — 가격 전부 공개." />
   <link rel="canonical" href="https://minimap.kr/apply.html" />
   <meta name="theme-color" content="#2563eb" />
   <meta property="og:type" content="website" />
   <meta property="og:site_name" content="minimap.kr" />
-  <meta property="og:title" content="행사 지도 제작 문의 · 미니맵" />
-  <meta property="og:description" content="이미 있는 행사 약도를 주시면 약도 위 실시간 위치 지도로 제작해 드립니다. 행사 후 익명 동선·체류 리포트(베타 테스트 중)도 제공." />
+  <meta property="og:title" content="행사 지도 제작 가격 · 문의 | 미니맵" />
+  <meta property="og:description" content="약도 한 장이면 실시간 위치 지도 완성. 라이트 30만원 · 동선 리포트 포함 스탠다드 60만원(베타 특가) — 가격 전부 공개." />
   <meta property="og:image" content="https://minimap.kr/og.png" />
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="630" />
@@ -32,6 +32,23 @@
     h2 { font-size: 19px; margin: 0 0 4px; }
     .sub { color: var(--muted); font-size: 14px; margin: 0 0 18px; }
     .beta { display: inline-block; font-size: 12px; font-weight: 800; padding: 3px 9px; border-radius: 20px; background: #fef3c7; color: #92400e; vertical-align: middle; margin-left: 6px; }
+
+    /* 가격 플랜 */
+    .plans { display: grid; gap: 12px; grid-template-columns: 1fr; margin-top: 10px; }
+    @media (min-width: 700px) { .plans { grid-template-columns: repeat(3, 1fr); } }
+    .plan { position: relative; border: 1.5px solid var(--line); border-radius: 14px; padding: 20px 18px 16px; background: #fff; display: flex; flex-direction: column; }
+    .plan.best { border-color: var(--blue); box-shadow: 0 6px 24px rgba(37,99,235,.12); }
+    .bestbadge { position: absolute; top: -11px; left: 16px; background: var(--blue); color: #fff; font-size: 11px; font-weight: 800; padding: 3px 10px; border-radius: 20px; }
+    .plan .pname { margin: 0 0 2px; font-size: 13.5px; font-weight: 800; color: var(--muted); }
+    .plan .price { margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -.5px; }
+    .plan .price span { font-size: 13px; font-weight: 600; color: var(--muted); letter-spacing: 0; }
+    .plan .was { margin: 2px 0 0; font-size: 12.5px; color: #92400e; }
+    .plan .was s { color: #9ca3af; }
+    .plan ul { margin: 12px 0 0; padding: 0; list-style: none; font-size: 13.5px; color: #374151; flex: 1; }
+    .plan li { padding: 4px 0 4px 20px; position: relative; }
+    .plan li::before { content: '✓'; position: absolute; left: 2px; color: var(--blue); font-weight: 800; }
+    .plan .fit { margin: 14px 0 0; font-size: 12.5px; color: var(--muted); border-top: 1px dashed var(--line); padding-top: 10px; }
+    .pricenote { font-size: 13px; color: var(--muted); margin: 12px 2px 0; }
 
     /* 예시 비교 */
     .ex { display: grid; gap: 14px; grid-template-columns: 1fr; }
@@ -90,6 +107,55 @@
       <p style="margin-top:12px">실제 지형과 <b>가로·세로 비율이 맞는 약도</b>면 바로 제작돼요. 비율이 조정돼 있으면 맞추는 작업이 필요해요.</p>
     </header>
 
+    <section id="pricing">
+      <h2>가격 안내</h2>
+      <p class="sub">가격은 숨김 없이 그대로 공개해요. 신청 후 영업 전화 없이 <b>메일로만</b> 진행됩니다.</p>
+      <div class="plans">
+        <div class="plan">
+          <p class="pname">라이트</p>
+          <p class="price">30만원<span> / 행사 1회</span></p>
+          <ul>
+            <li>약도(PDF·이미지) → <b>실시간 위치 미니맵</b> 제작</li>
+            <li>행사 기간 운영 · 링크/QR 제공</li>
+            <li>일별 방문·이용 집계</li>
+          </ul>
+          <p class="fit">소·중형 행사에 적합</p>
+        </div>
+        <div class="plan best">
+          <span class="bestbadge">추천</span>
+          <p class="pname">스탠다드</p>
+          <p class="price">60만원<span> / 행사 1회</span></p>
+          <p class="was">베타 기간 특가 · 정식가 <s>80만원</s></p>
+          <ul>
+            <li><b>라이트 전부 포함</b></li>
+            <li>행사 후 <b>익명 동선 히트맵·체류 리포트</b></li>
+            <li>결과보고서·정산 자료로 바로 활용</li>
+          </ul>
+          <p class="fit">데이터가 필요한 주최·대행사에 적합</p>
+        </div>
+        <div class="plan">
+          <p class="pname">대형·커스텀</p>
+          <p class="price">문의</p>
+          <ul>
+            <li>일 방문 수천 명 이상 대형 행사</li>
+            <li>다회차·시즌 패키지</li>
+            <li>상세 동선 분석 등 맞춤 구성</li>
+          </ul>
+          <p class="fit"><a href="mailto:minimapkr3@gmail.com">minimapkr3@gmail.com</a></p>
+        </div>
+      </div>
+      <p class="pricenote">모든 플랜은 이미 있는 약도 한 장이면 시작돼요. 견적서 등 증빙이 필요하시면 신청 시 함께 남겨주세요.</p>
+    </section>
+
+    <section>
+      <h2>행사 후 동선·체류 리포트 <span class="beta">베타 테스트 중</span></h2>
+      <p class="sub">스탠다드 플랜에 포함 — 관람객이 어느 구역에 머물렀는지 <b>익명으로 집계</b>해 리포트로 드려요. (개인 위치는 저장하지 않아요)</p>
+      <div class="reportbox">
+        <p>아래는 데이터가 어떻게 정리되는지 보여주는 <b>예시 리포트</b>예요. 실제 수치는 행사 후 자동 생성됩니다.</p>
+        <a class="reportlink" href="report.html" target="_blank" rel="noopener">📊 리포트 예시 보기 ▸</a>
+      </div>
+    </section>
+
     <section>
       <div class="ex">
         <div class="item good">
@@ -110,18 +176,9 @@
     </section>
 
     <section>
-      <h2>행사 후 동선·체류 리포트 <span class="beta">베타 테스트 중</span></h2>
-      <p class="sub">관람객이 어느 구역에 머물렀는지 <b>익명으로 집계</b>해 리포트로 드려요. (개인 위치는 저장하지 않아요)</p>
-      <div class="reportbox">
-        <p>아래는 데이터가 어떻게 정리되는지 보여주는 <b>예시 리포트</b>예요. 실제 수치는 행사 후 자동 생성됩니다.</p>
-        <a class="reportlink" href="report.html" target="_blank" rel="noopener">📊 리포트 예시 보기 ▸</a>
-      </div>
-    </section>
-
-    <section>
       <div class="ctabox">
         <h2>행사 약도만 있으면 됩니다</h2>
-        <p>이미 있는 약도(PDF·이미지)를 주세요. <b>1분이면 문의 끝</b> · 연락처는 마지막에 회신용으로만 받아요.</p>
+        <p>이미 있는 약도(PDF·이미지)를 주세요. <b>1분이면 문의 끝</b> · 연락처는 마지막에 회신용으로만 받아요.<br>원하시는 플랜은 회신 메일에서 함께 확정해요.</p>
         <a class="cta" href="https://docs.google.com/forms/d/e/1FAIpQLSdQiEWdbDwr1fQlOy38mnsCN8Pk7aILoDJwN5rOXpudqhgnAw/viewform" target="_blank" rel="noopener">📝 1분 신청하기 ▸</a>
       </div>
     </section>
