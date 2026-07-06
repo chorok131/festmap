@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>미니맵 · 실시간 위치 약도</title>
+  <title>미니맵 · GPS 약도 (실시간 내 위치)</title>
   <meta name="description" content="행사 약도 위에서 내 현재 위치와 방향을 실시간으로 보여주는 길찾기 지도." />
   <!-- 공유 카드(카톡·SNS 미리보기) — "내 위치 공유" 링크가 행사장 밖 새 사람에게 닿는 바이럴 표면 -->
   <meta property="og:type" content="website" />
@@ -241,7 +241,7 @@
            ${ev.name}<span class="sub">${[ev.venue, STBADGE[ev.status] || ''].filter(Boolean).join(' · ')}</span></a>`
       ).join('')
         + `<a class="row add" href="index.html">＋ 행사 목록 / 새 행사</a>`
-        + `<a class="row make" href="apply.html">✦ 우리 행사도 이렇게 만들고 싶다면<span class="sub">약도만 주시면 실시간 위치 지도 제작 — 제작 문의 ▸</span></a>`;
+        + `<a class="row make" href="apply.html">✦ 우리 행사도 이렇게 만들고 싶다면<span class="sub">약도만 주시면 GPS 약도(실시간 위치 지도) 제작 — 제작 문의 ▸</span></a>`;
     }
     document.getElementById('title').addEventListener('click', async (e) => {
       e.stopPropagation();

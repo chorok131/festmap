@@ -1,5 +1,5 @@
 {
-  "name": "미니맵 — 실시간 위치 약도",
+  "name": "미니맵 — GPS 약도 (실시간 위치)",
   "short_name": "미니맵",
   "start_url": "./index.html",
   "scope": "./",
