@@ -292,9 +292,29 @@
       return [(hom[0] * X + hom[1] * Y + hom[2]) / w, (hom[3] * X + hom[4] * Y + hom[5]) / w];
     }
     const pxToLatLng = (px, py) => [H - py, px];
+    // 축 배율(가로≠세로) 약도는 방향에 따라 픽셀/미터가 다름 → 남북·동서 평균(정확도원·격자용 근사)
     function pxPerMeter(lat, lng) {
-      const a = toPixel(lat, lng), b = toPixel(lat + 1 / 111320, lng);
-      return Math.hypot(b[0] - a[0], b[1] - a[1]);
+      const a = toPixel(lat, lng), b = toPixel(lat + 1 / 111320, lng), c = toPixel(lat, lng + 1 / (111320 * Math.cos(lat * rad)));
+      return (Math.hypot(b[0] - a[0], b[1] - a[1]) + Math.hypot(c[0] - a[0], c[1] - a[1])) / 2;
+    }
+    // 정확한 거리: 호모그래피 역변환으로 픽셀→메르카토르 → 위도 보정 미터
+    let homInv = null;
+    function invert3(h) {
+      const a = h[0], b = h[1], c = h[2], d = h[3], e = h[4], f = h[5], g = h[6], k = h[7], i = 1;
+      const A = e * i - f * k, B = c * k - b * i, C = b * f - c * e;
+      const D = f * g - d * i, E = a * i - c * g, F = c * d - a * f;
+      const G = d * k - e * g, K = b * g - a * k, I = a * e - b * d;
+      const det = a * A + b * D + c * G;
+      return [A / det, B / det, C / det, D / det, E / det, F / det, G / det, K / det, I / det];
+    }
+    function pixelToMerc(px, py) {
+      const m = homInv, w = m[6] * px + m[7] * py + m[8];
+      return [(m[0] * px + m[1] * py + m[2]) / w, (m[3] * px + m[4] * py + m[5]) / w];
+    }
+    function pxDistMeters(x1, y1, x2, y2) {
+      const a = pixelToMerc(x1, y1), b = pixelToMerc(x2, y2);
+      const lat = 2 * Math.atan(Math.exp(((a[1] + b[1]) / 2) / R)) - Math.PI / 2;
+      return Math.round(Math.hypot(a[0] - b[0], a[1] - b[1]) * Math.cos(lat));
     }
 
     function coneSVG() {
@@ -346,7 +366,7 @@
 
       if (meOutside) {
         const cx = Math.min(Math.max(px, 0), W), cy = Math.min(Math.max(py, 0), H);
-        const m = Math.round(Math.hypot(px - cx, py - cy) / Math.max(ppm, 1e-6));
+        const m = pxDistMeters(px, py, cx, cy);
         setStatus(`현위치가 약도 범위 밖이에요 (약 ${m}m). 행사장 안에서 다시 확인하세요.`, true);
       } else {
         setStatus(`내 위치 표시 중 · 정확도 ±${Math.round(acc || 0)}m`);
@@ -452,6 +472,7 @@
       map.setMaxBounds(L.latLngBounds(bounds).pad(0.05));
       map.setMinZoom(map.getBoundsZoom(bounds));
       hom = buildHom(g.corners);
+      homInv = invert3(hom);
       const refLat = (g.corners.topLeft.lat + g.corners.bottomRight.lat) / 2;
       const refLng = (g.corners.topLeft.lng + g.corners.bottomRight.lng) / 2;
       const p0 = toPixel(refLat, refLng), p1 = toPixel(refLat + 0.001, refLng);
@@ -638,7 +659,7 @@
 
     function distMeters(x, y) {
       if (!lastImg) return null;
-      return Math.round(Math.hypot(x - lastImg.px, y - lastImg.py) / Math.max(PPM0, 1e-6));
+      return pxDistMeters(x, y, lastImg.px, lastImg.py);
     }
     function distLine(x, y) {
       const m = distMeters(x, y);
