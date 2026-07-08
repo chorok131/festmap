@@ -287,7 +287,34 @@
       }
       return solveLinear(A, b);
     }
+    // 러버시트(transform:"tps") 행사면 gcps로 TPS를 재구성해 호모그래피 대신 사용.
+    // 약도 이미지는 언제나 '원본 그대로' 보여주고, GPS→픽셀 매핑만 국소적으로 휘어진다.
+    let tpsFwd = null, tpsInv = null;
+    function tpsFit(srcPts, dstPts) {
+      const n = srcPts.length;
+      let cx = 0, cy = 0; srcPts.forEach(p => { cx += p[0]; cy += p[1]; }); cx /= n; cy /= n;
+      let sc = 0; srcPts.forEach(p => { sc += Math.hypot(p[0] - cx, p[1] - cy); }); sc = sc / n || 1;
+      const S = srcPts.map(p => [(p[0] - cx) / sc, (p[1] - cy) / sc]);
+      const U = (r2) => r2 > 0 ? r2 * Math.log(r2) * 0.5 : 0;
+      const m = n + 3;
+      const A = Array.from({ length: m }, () => Array(m).fill(0));
+      for (let i = 0; i < n; i++) {
+        for (let j = 0; j < n; j++) { const dx = S[i][0] - S[j][0], dy = S[i][1] - S[j][1]; A[i][j] = U(dx * dx + dy * dy); }
+        A[i][i] += 1e-9;
+        A[i][n] = A[n][i] = 1; A[i][n + 1] = A[n + 1][i] = S[i][0]; A[i][n + 2] = A[n + 2][i] = S[i][1];
+      }
+      const solve1 = (vals) => solveLinear(A.map(r => r.slice()), vals.concat([0, 0, 0]));
+      const wx = solve1(dstPts.map(p => p[0])), wy = solve1(dstPts.map(p => p[1]));
+      return (x, y) => {
+        const qx = (x - cx) / sc, qy = (y - cy) / sc;
+        let X = wx[n] + wx[n + 1] * qx + wx[n + 2] * qy;
+        let Y = wy[n] + wy[n + 1] * qx + wy[n + 2] * qy;
+        for (let i = 0; i < n; i++) { const dx = qx - S[i][0], dy = qy - S[i][1], u = U(dx * dx + dy * dy); X += wx[i] * u; Y += wy[i] * u; }
+        return [X, Y];
+      };
+    }
     function toPixel(lat, lng) {
+      if (tpsFwd) return tpsFwd(mx(lng), my(lat));
       const X = mx(lng), Y = my(lat), w = hom[6] * X + hom[7] * Y + 1;
       return [(hom[0] * X + hom[1] * Y + hom[2]) / w, (hom[3] * X + hom[4] * Y + hom[5]) / w];
     }
@@ -308,6 +335,7 @@
       return [A / det, B / det, C / det, D / det, E / det, F / det, G / det, K / det, I / det];
     }
     function pixelToMerc(px, py) {
+      if (tpsInv) return tpsInv(px, py);
       const m = homInv, w = m[6] * px + m[7] * py + m[8];
       return [(m[0] * px + m[1] * py + m[2]) / w, (m[3] * px + m[4] * py + m[5]) / w];
     }
@@ -473,6 +501,11 @@
       map.setMinZoom(map.getBoundsZoom(bounds));
       hom = buildHom(g.corners);
       homInv = invert3(hom);
+      if (g.transform === 'tps' && Array.isArray(g.gcps) && g.gcps.length >= 4) {
+        const M = g.gcps.map(p => [mx(p.lng), my(p.lat)]), I = g.gcps.map(p => [p.imgX, p.imgY]);
+        tpsFwd = tpsFit(M, I);   // 메르카토르 → 이미지픽셀
+        tpsInv = tpsFit(I, M);   // 이미지픽셀 → 메르카토르(거리용 역방향 적합)
+      }
       const refLat = (g.corners.topLeft.lat + g.corners.bottomRight.lat) / 2;
       const refLng = (g.corners.topLeft.lng + g.corners.bottomRight.lng) / 2;
       const p0 = toPixel(refLat, refLng), p1 = toPixel(refLat + 0.001, refLng);
