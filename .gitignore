@@ -38,3 +38,10 @@ app/assets/sample_map.placeholder.png
 
 # Claude Code 로컬 설정(기기별)
 .claude/settings.local.json
+
+# ── 제작 도구(비공개) — 정렬도구·핀 파이프라인은 로컬 전용, 저장소·사이트에 올리지 않음 ──
+georeferencer.html
+.claude/
+
+# ── 원본 리플릿 등 대용량 소스 ──
+*.pdf
