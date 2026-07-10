@@ -4,13 +4,13 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>행사 지도 제작 가격 · 문의 | 미니맵</title>
-  <meta name="description" content="이미 있는 행사 약도(PDF·이미지)를 주시면 약도 위 GPS 약도(실시간 위치 지도)로 제작해 드립니다. 라이트 50만원 · 동선 리포트 포함 스탠다드 125만원(2026 초기 파트너 50% 할인) — 가격 전부 공개." />
+  <meta name="description" content="이미 있는 행사 약도(PDF·이미지)를 주시면 약도 위 GPS 약도(실시간 위치 지도)로 제작해 드립니다. 행사 1회 50만원 단일가 · 동선 리포트는 베타 기간 무료 — 가격 전부 공개." />
   <link rel="canonical" href="https://minimap.kr/apply.html" />
   <meta name="theme-color" content="#2563eb" />
   <meta property="og:type" content="website" />
   <meta property="og:site_name" content="minimap.kr" />
   <meta property="og:title" content="행사 지도 제작 가격 · 문의 | 미니맵" />
-  <meta property="og:description" content="약도 한 장이면 GPS 약도(실시간 위치 지도) 완성. 라이트 50만원 · 동선 리포트 포함 스탠다드 125만원(2026 초기 파트너 50% 할인) — 가격 전부 공개." />
+  <meta property="og:description" content="약도 한 장이면 GPS 약도(실시간 위치 지도) 완성. 행사 1회 50만원 단일가 · 동선 리포트는 베타 기간 무료 — 가격 전부 공개." />
   <meta property="og:image" content="https://minimap.kr/og.png" />
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="630" />
@@ -42,6 +42,8 @@
     .plan .pname { margin: 0 0 2px; font-size: 13.5px; font-weight: 800; color: var(--muted); }
     .plan .price { margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -.5px; }
     .plan .price span { font-size: 13px; font-weight: 600; color: var(--muted); letter-spacing: 0; white-space: nowrap; }
+    .plan .price.long { font-size: 21px; }   /* "구축 50만원 + 연 120만원"처럼 긴 표기 — 줄바꿈 방지 */
+    .plan .price.long b { white-space: nowrap; font-weight: 800; }
     .plan .was { margin: 2px 0 0; font-size: 12.5px; color: #92400e; }
     .plan .was s { color: #9ca3af; }
     .plan ul { margin: 12px 0 0; padding: 0; list-style: none; font-size: 13.5px; color: #374151; flex: 1; }
@@ -110,45 +112,43 @@
 
     <section id="pricing">
       <h2>가격 안내</h2>
-      <p class="sub">정가 전부 공개 — 흥정 없이 누구에게나 같은 가격이에요.</p>
-      <div class="promo">🎁 <b>2026 초기 파트너 — 전 플랜 50% 할인.</b> 도입 사례(행사명·지도 화면) 공개에 동의해 주시면 적용됩니다. 2026년 계약분 한정.</div>
+      <p class="sub">전부 공개 — 흥정 없이 누구에게나 같은 가격이에요.</p>
+      <div class="promo">🎁 <b>동선·체류 리포트는 베타 기간 무료로 드립니다.</b> 도입 사례(행사명·지도 화면)를 미니맵이 공개하는 데 동의해 주시면 적용돼요. 베타가 끝나면 유료 옵션으로 전환됩니다.</div>
       <div class="plans">
-        <div class="plan">
-          <p class="pname">라이트 — 약도가 살아있는 지도가 돼요</p>
+        <div class="plan best">
+          <span class="bestbadge">기본</span>
+          <p class="pname">행사 1회 — 약도가 살아있는 지도가 돼요</p>
           <p class="price">50만원<span> / 행사 1회</span></p>
-          <p class="was">초기 파트너가 · 정가 <s>100만원</s></p>
           <ul>
             <li>약도(PDF·이미지) → <b>실시간 내 위치 지도</b> — 앱 설치·가입 없이 QR 스캔이면 끝</li>
             <li>비율이 자유로운 <b>창작 약도도 러버시트 보정</b>으로 정확하게</li>
-            <li>화장실·주차장·안내소 등 <b>편의시설 핀 20곳</b></li>
-            <li>전용 단축주소 + QR · 행사 기간 호스팅·장애 대응</li>
-            <li>일별 방문·이용 집계</li>
-          </ul>
-          <p class="fit">"우리 어디쯤이야?" 안내가 필요한 소·중형 행사에</p>
-        </div>
-        <div class="plan best">
-          <span class="bestbadge">추천</span>
-          <p class="pname">스탠다드 — 찾고, 안내하고, 데이터가 남아요</p>
-          <p class="price">125만원<span> / 행사 1회</span></p>
-          <p class="was">초기 파트너가 · 정가 <s>250만원</s></p>
-          <ul>
-            <li><b>라이트 전부 포함</b></li>
-            <li>부스·정원·시설 <b>핀 전체 제작(개수 무제한)</b> — 검색·카테고리 필터·거리 안내</li>
+            <li>부스·시설 <b>핀 제작(개수 제한 없음)</b> — 검색·카테고리 필터·거리 안내</li>
             <li>간단한 핀 추가·수정은 담당자가 직접(셀프 편집)</li>
+            <li>전용 단축주소 + QR · 행사 기간 호스팅·장애 대응</li>
             <li>행사 중 배치가 바뀌면 <b>지도 갱신 1회</b> 포함</li>
-            <li>행사 후 <b>익명 동선 히트맵·체류 리포트</b> — 결과보고서·정산 자료로 바로 활용</li>
           </ul>
-          <p class="fit">관람객 안내와 데이터가 모두 필요한 주최·대행사에</p>
+          <p class="fit">기능 제한 없는 단일 가격. 규모와 상관없이 같은 값이에요.</p>
         </div>
         <div class="plan">
-          <p class="pname">상설·대형 — 연중 함께 운영해요</p>
-          <p class="price">구축 300만원<span> + 연 240만원</span></p>
-          <p class="was">초기 파트너 · 첫해 조건 협의</p>
+          <p class="pname">동선·체류 리포트 <span class="beta">베타</span></p>
+          <p class="price">무료<span> / 베타 기간</span></p>
+          <p class="was">사례 공개 동의 시 · 베타 종료 후 유료 전환</p>
           <ul>
-            <li><b>스탠다드 전부 포함</b> + 연중 운영</li>
+            <li>행사 후 <b>익명 동선 히트맵·체류 리포트</b></li>
+            <li>결과보고서·정산 자료로 바로 활용</li>
+            <li>개인 위치는 저장하지 않아요(격자 단위 익명 집계)</li>
+            <li>아직 검증 중인 기능이라, 함께 만들어 갈 행사를 찾고 있어요</li>
+          </ul>
+          <p class="fit">데이터가 실제로 쓸모 있는지 같이 확인해 주실 주최·대행사에</p>
+        </div>
+        <div class="plan">
+          <p class="pname">상설 관광지 — 연중 함께 운영해요</p>
+          <p class="price long"><b>구축 50만원</b><span> + 연 120만원</span></p>
+          <ul>
+            <li><b>행사 1회 전부 포함</b> + 연중 운영</li>
             <li>계절판 지도 갱신(연 2회) · 핀 무제한 수정</li>
-            <li><b>분기 방문 통계 리포트</b> — 시설 배치·운영 계획의 근거로</li>
             <li>연중 호스팅 · 우선 장애 대응</li>
+            <li>분기 방문 통계 리포트(베타)</li>
             <li>관광지·테마파크·다회차 시즌 행사 맞춤 구성</li>
           </ul>
           <p class="fit"><a href="mailto:minimapkr3@gmail.com">minimapkr3@gmail.com</a></p>
@@ -159,7 +159,7 @@
 
     <section>
       <h2>행사 후 동선·체류 리포트 <span class="beta">베타 테스트 중</span></h2>
-      <p class="sub">스탠다드 플랜에 포함 — 관람객이 어느 구역에 머물렀는지 <b>익명으로 집계</b>해 리포트로 드려요. (개인 위치는 저장하지 않아요)</p>
+      <p class="sub">베타 기간 <b>무료</b>(사례 공개 동의 시) — 관람객이 어느 구역에 머물렀는지 <b>익명으로 집계</b>해 리포트로 드려요. (개인 위치는 저장하지 않아요)</p>
       <div class="reportbox">
         <p>아래는 데이터가 어떻게 정리되는지 보여주는 <b>예시 리포트</b>예요. 실제 수치는 행사 후 자동 생성됩니다.</p>
         <a class="reportlink" href="report.html" target="_blank" rel="noopener">📊 리포트 예시 보기 ▸</a>
