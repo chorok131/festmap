@@ -4,13 +4,13 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>행사 지도 제작 가격 · 문의 | 미니맵</title>
-  <meta name="description" content="이미 있는 행사 약도(PDF·이미지)를 주시면 약도 위 GPS 약도(실시간 위치 지도)로 제작해 드립니다. 라이트 30만원 · 동선 리포트 포함 스탠다드 60만원(베타 특가) — 가격 전부 공개." />
+  <meta name="description" content="이미 있는 행사 약도(PDF·이미지)를 주시면 약도 위 GPS 약도(실시간 위치 지도)로 제작해 드립니다. 라이트 50만원 · 동선 리포트 포함 스탠다드 125만원(2026 초기 파트너 50% 할인) — 가격 전부 공개." />
   <link rel="canonical" href="https://minimap.kr/apply.html" />
   <meta name="theme-color" content="#2563eb" />
   <meta property="og:type" content="website" />
   <meta property="og:site_name" content="minimap.kr" />
   <meta property="og:title" content="행사 지도 제작 가격 · 문의 | 미니맵" />
-  <meta property="og:description" content="약도 한 장이면 GPS 약도(실시간 위치 지도) 완성. 라이트 30만원 · 동선 리포트 포함 스탠다드 60만원(베타 특가) — 가격 전부 공개." />
+  <meta property="og:description" content="약도 한 장이면 GPS 약도(실시간 위치 지도) 완성. 라이트 50만원 · 동선 리포트 포함 스탠다드 125만원(2026 초기 파트너 50% 할인) — 가격 전부 공개." />
   <meta property="og:image" content="https://minimap.kr/og.png" />
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="630" />
@@ -41,7 +41,7 @@
     .bestbadge { position: absolute; top: -11px; left: 16px; background: var(--blue); color: #fff; font-size: 11px; font-weight: 800; padding: 3px 10px; border-radius: 20px; }
     .plan .pname { margin: 0 0 2px; font-size: 13.5px; font-weight: 800; color: var(--muted); }
     .plan .price { margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -.5px; }
-    .plan .price span { font-size: 13px; font-weight: 600; color: var(--muted); letter-spacing: 0; }
+    .plan .price span { font-size: 13px; font-weight: 600; color: var(--muted); letter-spacing: 0; white-space: nowrap; }
     .plan .was { margin: 2px 0 0; font-size: 12.5px; color: #92400e; }
     .plan .was s { color: #9ca3af; }
     .plan ul { margin: 12px 0 0; padding: 0; list-style: none; font-size: 13.5px; color: #374151; flex: 1; }
@@ -49,6 +49,7 @@
     .plan li::before { content: '✓'; position: absolute; left: 2px; color: var(--blue); font-weight: 800; }
     .plan .fit { margin: 14px 0 0; font-size: 12.5px; color: var(--muted); border-top: 1px dashed var(--line); padding-top: 10px; }
     .pricenote { font-size: 13px; color: var(--muted); margin: 12px 2px 0; }
+    .promo { background: #fef3c7; color: #92400e; border-radius: 12px; padding: 12px 16px; font-size: 13.5px; margin: 10px 0 14px; line-height: 1.5; }
 
     /* 예시 비교 */
     .ex { display: grid; gap: 14px; grid-template-columns: 1fr; }
@@ -104,41 +105,51 @@
     <header class="hero">
       <h1>행사 미니맵, 만들어 드립니다.</h1>
       <p>행사 약도를 주시면 <b>약도 위에서 관람객이 자기 위치를 실시간으로 보는 지도</b>로 제작해 드려요. 1분이면 문의 끝.</p>
-      <p style="margin-top:12px">실제 지형과 <b>가로·세로 비율이 맞는 약도</b>면 바로 제작돼요. 비율이 조정돼 있으면 맞추는 작업이 필요해요.</p>
+      <p style="margin-top:12px">실제 지형과 비율이 다른 <b>창작 약도</b>도 괜찮아요 — 러버시트 보정 기술로 정확하게 맞춰 드려요.</p>
     </header>
 
     <section id="pricing">
       <h2>가격 안내</h2>
+      <p class="sub">정가 전부 공개 — 흥정 없이 누구에게나 같은 가격이에요.</p>
+      <div class="promo">🎁 <b>2026 초기 파트너 — 전 플랜 50% 할인.</b> 도입 사례(행사명·지도 화면) 공개에 동의해 주시면 적용됩니다. 2026년 계약분 한정.</div>
       <div class="plans">
         <div class="plan">
-          <p class="pname">라이트</p>
-          <p class="price">30만원<span> / 행사 1회</span></p>
+          <p class="pname">라이트 — 약도가 살아있는 지도가 돼요</p>
+          <p class="price">50만원<span> / 행사 1회</span></p>
+          <p class="was">초기 파트너가 · 정가 <s>100만원</s></p>
           <ul>
-            <li>약도(PDF·이미지) → <b>GPS 약도(실시간 위치 미니맵)</b> 제작</li>
-            <li>행사 기간 운영 · 링크/QR 제공</li>
+            <li>약도(PDF·이미지) → <b>실시간 내 위치 지도</b> — 앱 설치·가입 없이 QR 스캔이면 끝</li>
+            <li>비율이 자유로운 <b>창작 약도도 러버시트 보정</b>으로 정확하게</li>
+            <li>화장실·주차장·안내소 등 <b>편의시설 핀 20곳</b></li>
+            <li>전용 단축주소 + QR · 행사 기간 호스팅·장애 대응</li>
             <li>일별 방문·이용 집계</li>
           </ul>
-          <p class="fit">소·중형 행사에 적합</p>
+          <p class="fit">"우리 어디쯤이야?" 안내가 필요한 소·중형 행사에</p>
         </div>
         <div class="plan best">
           <span class="bestbadge">추천</span>
-          <p class="pname">스탠다드</p>
-          <p class="price">60만원<span> / 행사 1회</span></p>
-          <p class="was">베타 기간 특가 · 정식가 <s>80만원</s></p>
+          <p class="pname">스탠다드 — 찾고, 안내하고, 데이터가 남아요</p>
+          <p class="price">125만원<span> / 행사 1회</span></p>
+          <p class="was">초기 파트너가 · 정가 <s>250만원</s></p>
           <ul>
             <li><b>라이트 전부 포함</b></li>
-            <li>행사 후 <b>익명 동선 히트맵·체류 리포트</b></li>
-            <li>결과보고서·정산 자료로 바로 활용</li>
+            <li>부스·정원·시설 <b>핀 전체 제작(개수 무제한)</b> — 검색·카테고리 필터·거리 안내</li>
+            <li>간단한 핀 추가·수정은 담당자가 직접(셀프 편집)</li>
+            <li>행사 중 배치가 바뀌면 <b>지도 갱신 1회</b> 포함</li>
+            <li>행사 후 <b>익명 동선 히트맵·체류 리포트</b> — 결과보고서·정산 자료로 바로 활용</li>
           </ul>
-          <p class="fit">데이터가 필요한 주최·대행사에 적합</p>
+          <p class="fit">관람객 안내와 데이터가 모두 필요한 주최·대행사에</p>
         </div>
         <div class="plan">
-          <p class="pname">대형·커스텀</p>
-          <p class="price">문의</p>
+          <p class="pname">상설·대형 — 연중 함께 운영해요</p>
+          <p class="price">구축 300만원<span> + 연 240만원</span></p>
+          <p class="was">초기 파트너 · 첫해 조건 협의</p>
           <ul>
-            <li>일 방문 수천 명 이상 대형 행사</li>
-            <li>다회차·시즌 패키지</li>
-            <li>상세 동선 분석 등 맞춤 구성</li>
+            <li><b>스탠다드 전부 포함</b> + 연중 운영</li>
+            <li>계절판 지도 갱신(연 2회) · 핀 무제한 수정</li>
+            <li><b>분기 방문 통계 리포트</b> — 시설 배치·운영 계획의 근거로</li>
+            <li>연중 호스팅 · 우선 장애 대응</li>
+            <li>관광지·테마파크·다회차 시즌 행사 맞춤 구성</li>
           </ul>
           <p class="fit"><a href="mailto:minimapkr3@gmail.com">minimapkr3@gmail.com</a></p>
         </div>
@@ -167,8 +178,8 @@
         <div class="item bad">
           <img src="apply-bad.png" alt="비율이 조정된 약도 예시" />
           <div class="cap">
-            <span class="tag">✕ 수정 필요 — 비율 조정됨</span>
-            <p>보기 좋게 늘리거나 눌러 <b>비율이 실제와 다른</b> 약도. 이건 비율을 맞추는 작업이 필요해요.</p>
+            <span class="tag">△ 보정 후 제작 — 비율 조정됨</span>
+            <p>보기 좋게 늘리거나 눌러 <b>비율이 실제와 다른</b> 약도. 러버시트 보정으로 정확하게 맞춰 제작해요 — 기간이 하루쯤 더 걸릴 수 있어요.</p>
           </div>
         </div>
       </div>
