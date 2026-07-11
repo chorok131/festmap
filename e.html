@@ -92,6 +92,14 @@
     #search input { border: 0; outline: 0; flex: 1; font-size: 14px; background: transparent; }
     #chips { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; -webkit-overflow-scrolling: touch; }
     #chips::-webkit-scrollbar { display: none; }
+    /* 칩이 오른쪽으로 더 있음을 보여주는 장치: 끝을 흐리게(잘린 느낌) + 파란 › 버튼.
+       .more 클래스는 "오른쪽에 스크롤 여지가 있을 때"만 JS가 켠다 — 끝까지 밀면 사라짐 */
+    #chipwrap { position: relative; }
+    #chipwrap.more #chips { -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 52px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 52px), transparent); }
+    #chipmore { display: none; position: absolute; right: 0; top: 50%; transform: translateY(-50%); width: 30px; height: 30px;
+      border: 0; border-radius: 50%; background: #2563eb; color: #fff; font-size: 19px; font-weight: 800; line-height: 1;
+      padding: 0 0 2px; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(0,0,0,.28); cursor: pointer; }
+    #chipwrap.more #chipmore { display: inline-flex; }
     .chip { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 5px; border: 0; border-radius: 18px;
       padding: 7px 12px; font-size: 13px; font-weight: 600;
       background: rgba(255,255,255,.96); color: #374151; box-shadow: 0 2px 8px rgba(0,0,0,.15); white-space: nowrap; }
@@ -156,7 +164,7 @@
   <div id="poibar">
     <div id="search"><span>🔍</span><input id="q" type="text" placeholder="화장실, 정원 이름, C25…" autocomplete="off" /></div>
     <div id="results"></div>
-    <div id="chips"></div>
+    <div id="chipwrap"><div id="chips"></div><button id="chipmore" aria-label="카테고리 더 보기">›</button></div>
   </div>
   <div id="map"></div>
   <button id="follow"><span class="ic"></span><span id="followTxt">내 위치</span></button>
@@ -455,7 +463,7 @@
           window.addEventListener('deviceorientation', onOrient, true);
         }
       } catch (e) {}
-      if (!navigator.geolocation) { setStatus('이 브라우저는 위치를 지원하지 않습니다.', true); return; }
+      if (!navigator.geolocation) { setStatus('이 인터넷 앱에서는 위치 기능을 쓸 수 없어요. 크롬·사파리로 열어주세요.', true); return; }
       setStatus('내 위치 찾는 중…');
       watching = true; follow = true; updateFollowBtn();
       if (watchId != null) navigator.geolocation.clearWatch(watchId);
@@ -464,7 +472,7 @@
         (err) => {
           watching = false; updateFollowBtn();   // 실패 시 풀어서 "내 위치" 다시 누를 수 있게
           if (watchId != null) { navigator.geolocation.clearWatch(watchId); watchId = null; }
-          if (err.code === 1) setStatus('위치 권한이 꺼져 있어요. 설정에서 이 브라우저의 위치 권한을 허용한 뒤 "내 위치"를 다시 눌러주세요.', true);
+          if (err.code === 1) setStatus('위치 권한이 꺼져 있어요. 휴대폰 설정에서 이 인터넷 앱(크롬·사파리·네이버 등)의 위치 권한을 허용한 뒤 "내 위치"를 다시 눌러주세요.', true);
           else if (err.code === 2) setStatus('위치를 찾을 수 없어요. 잠시 후 "내 위치"를 다시 눌러주세요.', true);
           else if (err.code === 3) setStatus('위치 찾기가 지연돼요. "내 위치"를 다시 눌러주세요.', true);
           else setStatus('위치 오류: ' + (err.message || ''), true);
@@ -667,6 +675,8 @@
       document.getElementById('poibar').classList.add('on');
       refreshPois();   // 핀 + 텍스트 라벨
       syncChips();
+      updateChipMore();   // 표시 직후 실측 폭으로 재판정(숨김 상태에선 clientWidth=0)
+      nudgeChips();
     }
 
     function buildChips() {
@@ -681,6 +691,31 @@
         b.onclick = () => { activeCats.has(cat) ? activeCats.delete(cat) : activeCats.add(cat); renderPins(); syncChips(); };
         box.appendChild(b);
       });
+      updateChipMore();
+    }
+    // 칩 바 "오른쪽에 더 있어요" 표시: 스크롤 여지 있으면 끝 페이드 + › 버튼, 끝까지 밀면 숨김
+    function updateChipMore() {
+      const el = document.getElementById('chips');
+      const more = el.scrollWidth - el.clientWidth - el.scrollLeft > 6;
+      document.getElementById('chipwrap').classList.toggle('more', more);
+    }
+    document.getElementById('chips').addEventListener('scroll', updateChipMore, { passive: true });
+    window.addEventListener('resize', updateChipMore);
+    document.getElementById('chipmore').onclick = () => {
+      const el = document.getElementById('chips');
+      el.scrollBy({ left: Math.round(el.clientWidth * 0.7), behavior: 'smooth' });
+      setTimeout(updateChipMore, 500);   // scroll 이벤트 누락 대비 보험
+    };
+    // 처음 열릴 때 칩 바를 살짝 밀었다 되돌려 "옆으로 넘어간다"를 보여줌(스크롤 여지 있을 때 1회)
+    let chipNudged = false;
+    function nudgeChips() {
+      if (chipNudged) return; chipNudged = true;
+      const el = document.getElementById('chips');
+      setTimeout(() => {
+        if (el.scrollWidth <= el.clientWidth + 6 || el.scrollLeft > 0) return;
+        el.scrollTo({ left: 56, behavior: 'smooth' });
+        setTimeout(() => el.scrollTo({ left: 0, behavior: 'smooth' }), 750);
+      }, 1200);
     }
     function syncChips() {
       document.querySelectorAll('.chip').forEach(b => b.classList.toggle('on', activeCats.has(b.dataset.cat)));
