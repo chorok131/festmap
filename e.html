@@ -248,7 +248,7 @@
       let evs = [];
       try { evs = (await (await fetch('events/events.json')).json()).events || []; } catch (e) {}
       const STBADGE = { upcoming: '다가오는 행사', live: '진행 중', past: '지난 행사' };
-      eventMenu.innerHTML = evs.map(ev =>
+      eventMenu.innerHTML = evs.filter(ev => !ev.unlisted || ev.slug === SLUG).map(ev =>   // unlisted = 직접 링크로만(목록 비노출), 현재 보는 행사면 표시
         `<a class="row${ev.slug === SLUG ? ' cur' : ''}" href="e.html?event=${encodeURIComponent(ev.slug)}">
            ${ev.name}<span class="sub">${[ev.venue, STBADGE[ev.status] || ''].filter(Boolean).join(' · ')}</span></a>`
       ).join('')

@@ -1,9 +1,10 @@
 {
-  "_comment": "행사 레지스트리. 새 행사 추가 = events/<슬러그>/ 폴더(georef.json+map.png) 만들고 여기에 한 블록 추가. status: upcoming | live | past",
+  "_comment": "행사 레지스트리. 새 행사 추가 = events/<슬러그>/ 폴더(georef.json+map.png) 만들고 여기에 한 블록 추가. status: upcoming | live | past. unlisted:true = 직접 링크로만 접근(메인 목록·행사 메뉴 비노출) — 주최 협의 전 데모용.",
   "events": [
     {
       "slug": "nami",
       "short": "namisum",
+      "unlisted": true,
       "name": "남이섬",
       "venue": "남이섬(나미나라공화국)",
       "city": "강원 춘천시",

@@ -157,6 +157,7 @@
       .then(r => r.json())
       .then(({ events }) => {
         const list = document.getElementById('list');
+        events = (events || []).filter(ev => !ev.unlisted);   // unlisted = 직접 링크로만(주최 협의 전 데모) — 목록 비노출
         if (!events || !events.length) { document.getElementById('empty').textContent = '아직 등록된 행사가 없습니다.'; return; }
         // 다가오는 행사 먼저, 그다음 진행중, 지난 행사
         const order = { upcoming: 0, live: 1, past: 2 };
