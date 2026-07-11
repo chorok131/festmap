@@ -1,5 +1,6 @@
 {
   "event": "남이섬",
+  "liveEdit": true,
   "baseMap": "OSM",
   "image": "map.png",
   "transform": "tps",
