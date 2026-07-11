@@ -31,11 +31,13 @@
     const op=document.getElementById('op');
     function applyOp(){const el=overlay&&overlay.getElement();if(el)el.style.opacity=op.value;}
     op.addEventListener('input',applyOp);
+    const SLUG=new URLSearchParams(location.search).get('event');  // ?event=<슬러그> 있으면 events/<슬러그>/ 폴더 확인, 없으면 현재 폴더(레거시)
+    const BASE=SLUG?`events/${SLUG}/`:'';
     (async function(){
-      const g=await (await fetch('georef.json')).json();
+      const g=await (await fetch(BASE+'georef.json')).json();
       const c=g.corners;
       const corners=[c.topLeft,c.topRight,c.bottomLeft,c.bottomRight].map(p=>L.latLng(p.lat,p.lng));
-      overlay=L.distortableImageOverlay(g.image,{corners:corners.slice(),selected:false,suppressToolbar:true}).addTo(map);
+      overlay=L.distortableImageOverlay(BASE+g.image,{corners:corners.slice(),selected:false,suppressToolbar:true}).addTo(map);
       overlay.on('load',applyOp); setTimeout(applyOp,300);
       // GCP 표시
       (g.gcps||[]).forEach((p,i)=>L.marker([p.lat,p.lng],{icon:L.divIcon({className:'',iconSize:[22,22],iconAnchor:[11,11],html:`<div class="gcp">${i+1}</div>`})}).addTo(map));
