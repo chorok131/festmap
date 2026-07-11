@@ -33,16 +33,112 @@
     op.addEventListener('input',applyOp);
     const SLUG=new URLSearchParams(location.search).get('event');  // ?event=<슬러그> 있으면 events/<슬러그>/ 폴더 확인, 없으면 현재 폴더(레거시)
     const BASE=SLUG?`events/${SLUG}/`:'';
+
+    // ── TPS 러버시트 렌더(georeferencer.html에서 이식) ──────────────────
+    // corners 4점 근사는 창작 약도(국소 왜곡)에서 어긋나 보임 — 실제 뷰어(e.html)와 같은
+    // TPS를 격자 메시로 캔버스에 구워 얹어야 진짜 서비스 정렬이 보인다.
+    function solveLinear(A,b){
+      const n=b.length,M=A.map((r,i)=>r.concat([b[i]]));
+      for(let col=0;col<n;col++){
+        let piv=col;for(let r=col+1;r<n;r++)if(Math.abs(M[r][col])>Math.abs(M[piv][col]))piv=r;
+        [M[col],M[piv]]=[M[piv],M[col]];
+        const d=M[col][col];if(Math.abs(d)<1e-15)continue;
+        for(let r=0;r<n;r++)if(r!==col){const f=M[r][col]/d;for(let c=col;c<=n;c++)M[r][c]-=f*M[col][c];}
+      }
+      return M.map((row,i)=>row[n]/row[i]);
+    }
+    function tpsFit(srcPts,dstPts){
+      const n=srcPts.length;
+      let cx=0,cy=0;srcPts.forEach(p=>{cx+=p[0];cy+=p[1];});cx/=n;cy/=n;
+      let sc=0;srcPts.forEach(p=>{sc+=Math.hypot(p[0]-cx,p[1]-cy);});sc=sc/n||1;
+      const S=srcPts.map(p=>[(p[0]-cx)/sc,(p[1]-cy)/sc]);
+      const U=(r2)=>r2>0?r2*Math.log(r2)*0.5:0;
+      const m=n+3;
+      const A=Array.from({length:m},()=>Array(m).fill(0));
+      for(let i=0;i<n;i++){
+        for(let j=0;j<n;j++){const dx=S[i][0]-S[j][0],dy=S[i][1]-S[j][1];A[i][j]=U(dx*dx+dy*dy);}
+        A[i][i]+=1e-9;
+        A[i][n]=A[n][i]=1;A[i][n+1]=A[n+1][i]=S[i][0];A[i][n+2]=A[n+2][i]=S[i][1];
+      }
+      const solve1=(vals)=>solveLinear(A.map(r=>r.slice()),vals.concat([0,0,0]));
+      const wx=solve1(dstPts.map(p=>p[0])),wy=solve1(dstPts.map(p=>p[1]));
+      return (x,y)=>{
+        const qx=(x-cx)/sc,qy=(y-cy)/sc;
+        let X=wx[n]+wx[n+1]*qx+wx[n+2]*qy;
+        let Y=wy[n]+wy[n+1]*qx+wy[n+2]*qy;
+        for(let i=0;i<n;i++){const dx=qx-S[i][0],dy=qy-S[i][1],u=U(dx*dx+dy*dy);X+=wx[i]*u;Y+=wy[i]*u;}
+        return {X,Y};
+      };
+    }
+    function drawTri(ctx,tex,s0,s1,s2,d0,d1,d2){
+      const den=(s1[0]-s0[0])*(s2[1]-s0[1])-(s2[0]-s0[0])*(s1[1]-s0[1]);
+      if(!den)return;
+      const a=((d1[0]-d0[0])*(s2[1]-s0[1])-(d2[0]-d0[0])*(s1[1]-s0[1]))/den;
+      const b=((d2[0]-d0[0])*(s1[0]-s0[0])-(d1[0]-d0[0])*(s2[0]-s0[0]))/den;
+      const c=((d1[1]-d0[1])*(s2[1]-s0[1])-(d2[1]-d0[1])*(s1[1]-s0[1]))/den;
+      const d=((d2[1]-d0[1])*(s1[0]-s0[0])-(d1[1]-d0[1])*(s2[0]-s0[0]))/den;
+      const e=d0[0]-a*s0[0]-b*s0[1];
+      const f=d0[1]-c*s0[0]-d*s0[1];
+      ctx.save();
+      ctx.beginPath();ctx.moveTo(d0[0],d0[1]);ctx.lineTo(d1[0],d1[1]);ctx.lineTo(d2[0],d2[1]);ctx.closePath();
+      ctx.clip();
+      ctx.setTransform(a,c,b,d,e,f);
+      ctx.drawImage(tex,0,0);
+      ctx.restore();
+    }
+    function renderTps(img,gcps){
+      const W=img.naturalWidth,H=img.naturalHeight;
+      const maxW=1600,ts=Math.min(1,maxW/W);
+      const tex=document.createElement('canvas');
+      tex.width=Math.max(1,Math.round(W*ts));tex.height=Math.max(1,Math.round(H*ts));
+      tex.getContext('2d').drawImage(img,0,0,tex.width,tex.height);
+      const inv=tpsFit(gcps.map(g=>[g.imgX,g.imgY]),
+        gcps.map(g=>{const p=map.options.crs.project(L.latLng(g.lat,g.lng));return [p.x,p.y];}));
+      const GX=24,GY=18,nodes=[];
+      for(let j=0;j<=GY;j++)for(let i=0;i<=GX;i++){const p=inv(W*i/GX,H*j/GY);nodes.push([p.X,p.Y]);}
+      let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+      nodes.forEach(p=>{minX=Math.min(minX,p[0]);maxX=Math.max(maxX,p[0]);minY=Math.min(minY,p[1]);maxY=Math.max(maxY,p[1]);});
+      if(!isFinite(minX)||maxX-minX<1e-9||maxY-minY<1e-9)return null;
+      const CW=1600,scale=CW/(maxX-minX),CH=Math.max(1,Math.round((maxY-minY)*scale));
+      if(CH>8000)return null;                                    // 극단적 왜곡 가드
+      const cnv=document.createElement('canvas');cnv.width=CW;cnv.height=CH;
+      const ctx=cnv.getContext('2d');
+      const toC=(p)=>[(p[0]-minX)*scale,(maxY-p[1])*scale];
+      const node=(i,j)=>nodes[j*(GX+1)+i];
+      for(let j=0;j<GY;j++)for(let i=0;i<GX;i++){
+        const s00=[W*i/GX*ts,H*j/GY*ts],s10=[W*(i+1)/GX*ts,H*j/GY*ts];
+        const s01=[W*i/GX*ts,H*(j+1)/GY*ts],s11=[W*(i+1)/GX*ts,H*(j+1)/GY*ts];
+        const d00=toC(node(i,j)),d10=toC(node(i+1,j)),d01=toC(node(i,j+1)),d11=toC(node(i+1,j+1));
+        drawTri(ctx,tex,s00,s10,s11,d00,d10,d11);
+        drawTri(ctx,tex,s00,s11,s01,d00,d11,d01);
+      }
+      const b=L.latLngBounds(map.options.crs.unproject(L.point(minX,minY)),map.options.crs.unproject(L.point(maxX,maxY)));
+      return L.imageOverlay(cnv.toDataURL(),b,{interactive:false});
+    }
+
     (async function(){
       const g=await (await fetch(BASE+'georef.json')).json();
       const c=g.corners;
       const corners=[c.topLeft,c.topRight,c.bottomLeft,c.bottomRight].map(p=>L.latLng(p.lat,p.lng));
-      overlay=L.distortableImageOverlay(BASE+g.image,{corners:corners.slice(),selected:false,suppressToolbar:true}).addTo(map);
-      overlay.on('load',applyOp); setTimeout(applyOp,300);
+      // TPS 행사(창작 약도)는 실제 뷰어와 같은 러버시트로 — corners 4점 근사는 어긋나 보임
+      const useTps=g.transform==='tps'&&Array.isArray(g.gcps)&&g.gcps.length>=4;
+      if(useTps){
+        try{
+          const img=new Image();img.src=BASE+g.image;
+          await new Promise((res,rej)=>{img.onload=res;img.onerror=rej;});
+          overlay=renderTps(img,g.gcps);
+        }catch(e){overlay=null;}
+      }
+      if(overlay){overlay.addTo(map);overlay.on('load',applyOp);setTimeout(applyOp,300);}
+      else{
+        overlay=L.distortableImageOverlay(BASE+g.image,{corners:corners.slice(),selected:false,suppressToolbar:true}).addTo(map);
+        overlay.on('load',applyOp);setTimeout(applyOp,300);
+      }
       // GCP 표시
       (g.gcps||[]).forEach((p,i)=>L.marker([p.lat,p.lng],{icon:L.divIcon({className:'',iconSize:[22,22],iconAnchor:[11,11],html:`<div class="gcp">${i+1}</div>`})}).addTo(map));
-      map.fitBounds(L.latLngBounds(corners).pad(0.1));
-      document.getElementById('info').textContent=`${g.event} · ${g.transform} · 대응점 ${(g.gcps||[]).length}개`;
+      const fitPts=(g.gcps&&g.gcps.length)?g.gcps.map(p=>L.latLng(p.lat,p.lng)):corners;
+      map.fitBounds(L.latLngBounds(fitPts).pad(0.1));
+      document.getElementById('info').textContent=`${g.event} · ${g.transform}${overlay instanceof L.ImageOverlay&&useTps?'(러버시트 표시)':''} · 대응점 ${(g.gcps||[]).length}개`;
     })();
   </script>
 </body>

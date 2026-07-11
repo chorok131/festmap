@@ -1,7 +1,7 @@
 // 미니맵 서비스워커 — 오프라인/약신호 대비 (stale-while-revalidate)
 // 핵심: GPS는 위성이라 인터넷 불필요 → 약도·코드만 캐시돼 있으면 행사장 통신 마비에도 전부 동작.
 // 구조 변경 시 이 버전을 올리면(activate에서) 옛 캐시가 자동 폐기됨 → 기존 사용자 화면 고착 방지
-const CACHE = 'festmap-v47';
+const CACHE = 'festmap-v48';
 const CORE = [   // 앱 셸 (Leaflet은 자체 호스팅 → 외부 CDN 의존 없음)
   './', './index.html', './e.html', './apply.html', './apply-good.png', './apply-bad.png', './report.html', './qr.html', './heatmap.html',
   './analytics.js', './firebase-config.js',
