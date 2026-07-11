@@ -6,9 +6,11 @@ service cloud.firestore {
     // 보안 모델 메모 (2026-07 개정 · 비밀 편집링크 서버검증)
     //  편집(셀프편집 live 쓰기)은 "비밀 편집링크(?edit=<키>)"로만 허용하되,
     //  키 대조를 클라이언트가 아니라 이 규칙(서버)이 한다:
-    //  - 진짜 키 = events/{slug}/private/meta.editKey (클라 읽기/쓰기 불가, 콘솔에서만 시드)
+    //  - 유효한 키 = ① 전역 마스터키 config/meta.editKey (운영자·담당자 공용, 한 번만 시드)
+    //                또는 ② 행사 전용키 events/{slug}/private/meta.editKey (특정 고객용, 선택)
+    //    둘 다 클라 읽기/쓰기 불가, 콘솔에서만 시드. 새 행사는 liveEdit만 켜면 마스터키로 바로 열림.
     //  - 편집 저장 = 배치 쓰기: private/handshake(k=키, t=서버시각) + live/pois 동시 커밋
-    //  - handshake 쓰기 자체가 k==editKey 일 때만 허용되고, live 쓰기는 "같은 배치에서
+    //  - handshake 쓰기 자체가 k==마스터키 || k==전용키 일 때만 허용되고, live 쓰기는 "같은 배치에서
     //    handshake가 방금 쓰였는지"(getAfter t==request.time)를 확인 → 키 틀리면 배치 전체 거부
     //  - 과거 handshake 재사용(리플레이)은 t==request.time 조건이 차단
     //  → 키가 클라이언트로 내려가는 일이 없어(구 edit.json 폐기) 공개 리포/사이트에 안 샌다.
@@ -17,6 +19,14 @@ service cloud.firestore {
     // "이 요청이 올바른 키의 handshake와 같은 배치인가"
     function keyBatch(slug) {
       return getAfter(/databases/$(database)/documents/events/$(slug)/private/handshake).data.t == request.time;
+    }
+    // 편집키 검증: 전역 마스터키(config/meta) 또는 행사 전용키(events/{slug}/private/meta) 중 하나와 일치.
+    // exists() 가드로 문서가 없어도(전용키 미시드 행사) 오류 없이 다음 후보로 넘어감.
+    function editKeyOk(slug, k) {
+      return (exists(/databases/$(database)/documents/config/meta)
+              && k == get(/databases/$(database)/documents/config/meta).data.editKey)
+          || (exists(/databases/$(database)/documents/events/$(slug)/private/meta)
+              && k == get(/databases/$(database)/documents/events/$(slug)/private/meta).data.editKey);
     }
 
     // 원천 세션 기록: 개인 동선 원본(D단계). 쓰기만, 읽기/삭제 영구 차단.
@@ -44,14 +54,19 @@ service cloud.firestore {
       allow delete: if keyBatch(slug);   // '원본 되돌리기'도 키 배치만
     }
 
-    // 비공개 영역: meta(진짜 키 보관)는 클라 접근 전면 차단(콘솔에서만 시드).
-    // handshake만 "정답 키를 아는 요청"에 한해 쓰기 허용 — 이 쓰기의 성공 여부가 곧 키 검증.
+    // 비공개 영역: meta(행사 전용키 보관)는 클라 접근 전면 차단(콘솔에서만 시드).
+    // handshake만 "정답 키(마스터 또는 전용)를 아는 요청"에 한해 쓰기 허용 — 성공 여부가 곧 키 검증.
     // (읽기 차단이라 키가 밖으로 새는 경로 없음. 오답 시도는 거부될 뿐 비용·저장 없음.)
     match /events/{slug}/private/{doc} {
       allow read, delete: if false;
       allow create, update: if doc == 'handshake'
         && request.resource.data.t == request.time
-        && request.resource.data.k == get(/databases/$(database)/documents/events/$(slug)/private/meta).data.editKey;
+        && editKeyOk(slug, request.resource.data.k);
+    }
+
+    // 전역 운영자 마스터키 보관소. 클라 접근 전면 차단 — 콘솔에서 config/meta.editKey 한 번만 시드.
+    match /config/{doc} {
+      allow read, write: if false;
     }
   }
 }
