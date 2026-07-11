@@ -42,9 +42,8 @@
     .plan .pname { margin: 0 0 2px; font-size: 13.5px; font-weight: 800; color: var(--muted); }
     .plan .price { margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -.5px; }
     .plan .price span { font-size: 13px; font-weight: 600; color: var(--muted); letter-spacing: 0; white-space: nowrap; }
-    .plan .price.long { font-size: 21px; }   /* "구축 50만원 + 연 120만원"처럼 긴 표기 — 줄바꿈 방지 */
-    .plan .price.long b { white-space: nowrap; font-weight: 800; }
     .plan .was { margin: 2px 0 0; font-size: 12.5px; color: #92400e; }
+    .plan .scope { margin: 12px 0 0; padding-top: 10px; border-top: 1px dashed var(--line); font-size: 12.5px; color: var(--muted); line-height: 1.5; }
     .plan .was s { color: #9ca3af; }
     .plan ul { margin: 12px 0 0; padding: 0; list-style: none; font-size: 13.5px; color: #374151; flex: 1; }
     .plan li { padding: 4px 0 4px 20px; position: relative; }
@@ -111,6 +110,7 @@
             <li>간단한 핀 추가·수정 및 문구 추가가 가능한 <b>담당자용 셀프편집 url</b> 제공</li>
             <li>배포 후 <b>2주간 AS</b> 제공</li>
           </ul>
+          <p class="scope">며칠~몇 주 단기 행사 기준이에요. 몇 달 이상 상시 운영이 필요하면 <b>상설 플랜</b>으로 안내해 드려요.</p>
         </div>
         <div class="plan">
           <p class="pname">혼잡·체류 리포트 <span class="beta">베타</span></p>
@@ -125,9 +125,9 @@
         </div>
         <div class="plan">
           <p class="pname">상설 관광지 — 연중 함께 운영해요</p>
-          <p class="price long"><b>구축 50만원</b><span> + 연 120만원</span></p>
+          <p class="price">연 120만원<span> · 월 10만 꼴</span></p>
           <ul>
-            <li><b>GPS 약도 제작 전부 포함</b> + 연중 운영</li>
+            <li><b>GPS 약도 제작(첫해 구축) 포함</b> — 별도 구축비 없음</li>
             <li>계절판 지도 갱신(연 2회) · 핀 무제한 수정</li>
             <li>연중 호스팅 · 우선 장애 대응</li>
             <li>분기 방문 통계 리포트(베타)</li>
