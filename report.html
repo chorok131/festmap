@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>혼잡·체류 리포트 · 미니맵</title>
+  <title>관람객 방문 리포트 · 미니맵</title>
   <style>
     :root { --ink:#111827; --muted:#6b7280; --line:#e5e7eb; --blue:#2563eb; --bg:#f8fafc; }
     * { box-sizing: border-box; }
@@ -64,7 +64,7 @@
   <div class="sheet">
     <div class="head">
       <div>
-        <h1>관람객 혼잡·체류 리포트</h1>
+        <h1>관람객 방문 리포트</h1>
         <div class="ev" id="evName">행사명</div>
       </div>
       <span class="sp"></span>
@@ -87,7 +87,7 @@
 
     <div class="cards" id="cards"></div>
 
-    <h2>혼잡 히트맵 — 관람객이 머문 곳</h2>
+    <h2>방문 히트맵 — 관람객이 머문 곳</h2>
     <div class="mapwrap">
       <img id="map" alt="행사 약도" />
       <canvas id="heat"></canvas>
@@ -116,7 +116,7 @@
     <div class="foot">
       <p id="footNote">⚠️ 본 리포트는 <b>샘플(예시) 데이터</b>로 작성됐습니다. 실제 행사에서는 익명 집계된 진짜 관람객 분포로 자동 생성됩니다. <a href="heatmap.html" style="color:var(--blue)">익명 집계 방식 보기 ▸</a></p>
       <p id="liveNote" style="display:none">📊 <b>베타 테스트 중</b> · 위치는 <b>익명 격자 집계</b>(개인 위치 미저장). <a href="heatmap.html" style="color:var(--blue)">집계 방식 보기 ▸</a></p>
-      <p>minimap.kr · 혼잡·체류 데이터 리포트 &nbsp;<button class="printbtn noprint" onclick="window.print()">PDF로 저장 / 인쇄</button></p>
+      <p>minimap.kr · 관람객 방문 데이터 리포트 &nbsp;<button class="printbtn noprint" onclick="window.print()">PDF로 저장 / 인쇄</button></p>
     </div>
   </div>
 
