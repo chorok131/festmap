@@ -217,10 +217,14 @@
     const EDIT_PARAM = new URLSearchParams(location.search).get('edit');      // 비밀 편집키(진짜 키는 Firestore private/meta에만 — 사이트/리포엔 없음)
     let editCat = 'garden';
     let editHistory = [];                   // 편집 실행취소 스택(POIS 스냅샷). 추가/수정/삭제 직전에 push.
+    let movingPoi = null;                    // 위치 이동 모드: 팝업 '위치 이동' 누른 핀이 담김 → 다음 지도 탭이 목적지
+    function armMove(p) { movingPoi = p; try { map.getContainer().style.cursor = 'crosshair'; } catch (e) {} }
+    function disarmMove() { movingPoi = null; try { map.getContainer().style.cursor = ''; } catch (e) {} }
     function pushHistory() { try { editHistory.push(JSON.stringify(POIS)); if (editHistory.length > 60) editHistory.shift(); } catch (e) {} }
     function undoEdit() {
       if (!EDIT || !editHistory.length) { toast('되돌릴 편집이 없어요'); return; }
       try { POIS = JSON.parse(editHistory.pop()); } catch (e) { return; }
+      disarmMove();   // POIS 객체가 교체되므로 이동 대상 참조 폐기
       refreshPois(); buildChips(); syncChips(); map.closePopup(); toast('실행취소 ↩︎ (' + editHistory.length + '단계 남음)');
     }
 
@@ -722,11 +726,13 @@
     }
 
     function openPoi(p) {
+      if (movingPoi) disarmMove();   // 이동 대기 중 다른 핀 탭 → 이동 취소
       const c = CAT[p.cat] || {};
       const bstyle = 'border:0;border-radius:8px;padding:8px 12px;font-weight:600;font-size:13px;width:100%';
       let btns;
       if (EDIT) {
         btns = `<button onclick="window._editPoi(${p.x},${p.y})" style="${bstyle};display:flex;align-items:center;justify-content:center;gap:5px;background:#2563eb;color:#fff;margin-bottom:6px">${svgIcon('pencil', 15)} 이름 수정</button>
+                <button onclick="window._movePoi(${p.x},${p.y})" style="${bstyle};display:flex;align-items:center;justify-content:center;gap:5px;background:#0d9488;color:#fff;margin-bottom:6px">${svgIcon('pin', 15)} 위치 이동</button>
                 <button onclick="window._delPoi(${p.x},${p.y})" style="${bstyle};display:flex;align-items:center;justify-content:center;gap:5px;background:#e5e7eb;color:#111">${svgIcon('trash', 15)} 삭제</button>`;
       } else {
         const faved = isFav(p.x, p.y);
@@ -748,6 +754,11 @@
       pushHistory();
       POIS = POIS.filter(p => !(p.x === x && p.y === y));
       refreshPois(); map.closePopup(); toast('삭제됨 — 다 되면 💾 저장');
+    };
+    window._movePoi = function (x, y) {
+      const p = POIS.find(pp => pp.x === x && pp.y === y); if (!p) return;
+      armMove(p); map.closePopup();
+      toast('옮길 위치를 지도에서 탭하세요 (다른 핀 탭 시 취소)');
     };
 
     // ───────────── 편집키 서버검증 (비밀 편집링크) ─────────────
@@ -794,6 +805,17 @@
       map.on('click', (e) => {
         const x = Math.round(e.latlng.lng), y = Math.round(H - e.latlng.lat);
         if (x < 0 || x > W || y < 0 || y > H) return;
+        // 위치 이동 모드: 선택한 핀을 탭한 지점으로 이동(확인 후)
+        if (movingPoi) {
+          const target = movingPoi; disarmMove();
+          const label = target.name || (CAT[target.cat] || {}).label || '핀';
+          if (confirm('‘' + label + '’ 핀을 여기로 이동하시겠습니까?')) {
+            pushHistory();
+            target.x = x; target.y = y;
+            refreshPois(); toast('이동됨 — 다 되면 💾 저장');
+          } else { toast('이동 취소됨'); }
+          return;
+        }
         const ask = editCat === 'label' ? '지도에 넣을 글자' : ('추가할 ' + (CAT[editCat] || {}).label + ' 이름');
         const name = prompt(ask, '');
         if (!name) return;
