@@ -51,8 +51,9 @@
     #eventMenu .row.cur { background: #eff6ff; font-weight: 700; }
     #eventMenu .row .sub { display: block; color: #9ca3af; font-size: 12px; margin-top: 2px; }
     #eventMenu .row.add { color: #2563eb; font-weight: 600; }
-    #eventMenu .row.make { background: #eff6ff; color: #1e3a8a; font-weight: 700; border-radius: 0 0 12px 12px; }
+    #eventMenu .row.make { background: #eff6ff; color: #1e3a8a; font-weight: 700; }
     #eventMenu .row.make .sub { color: #2563eb; font-weight: 500; }
+    #eventMenu .row.priv { font-size: 12px; color: #9ca3af; padding: 9px 14px; border-radius: 0 0 12px 12px; }
     #editbar { position: absolute; z-index: 1001; top: 56px; left: 10px; right: 10px; display: none;
       align-items: center; gap: 8px; background: #fef3c7; border: 1px solid #f59e0b; border-radius: 10px;
       padding: 8px 10px; font-size: 13px; box-shadow: 0 2px 8px rgba(0,0,0,.15); }
@@ -253,7 +254,8 @@
            ${ev.name}<span class="sub">${[ev.venue, STBADGE[ev.status] || ''].filter(Boolean).join(' · ')}</span></a>`
       ).join('')
         + `<a class="row add" href="index.html">＋ 행사 목록 / 새 행사</a>`
-        + `<a class="row make" href="apply.html">✦ 우리 행사도 이렇게 만들고 싶다면<span class="sub">약도만 주시면 GPS 약도(실시간 위치 지도) 제작 — 제작 문의 ▸</span></a>`;
+        + `<a class="row make" href="apply.html">✦ 우리 행사도 이렇게 만들고 싶다면<span class="sub">약도만 주시면 GPS 약도(실시간 위치 지도) 제작 — 제작 문의 ▸</span></a>`
+        + `<a class="row priv" href="privacy.html">개인정보처리방침</a>`;
     }
     document.getElementById('title').addEventListener('click', async (e) => {
       e.stopPropagation();
