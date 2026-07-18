@@ -25,6 +25,18 @@
       "status": "live",
       "image": "events/seoulforest-2026/map_labeled.png",
       "summary": "약도 위에서 내 현재 위치와 방향을 실시간으로 보여주는 2026 서울국제정원박람회 길찾기 지도."
+    },
+    {
+      "slug": "iksan-2025",
+      "unlisted": true,
+      "name": "익산 천만송이 국화축제",
+      "venue": "익산 중앙체육공원",
+      "city": "전북 익산시",
+      "start": "2025-10-24",
+      "end": "2025-11-02",
+      "status": "past",
+      "image": "events/iksan-2025/map.png",
+      "summary": "약도 위에서 내 현재 위치와 방향을 실시간으로 보여주는 익산 천만송이 국화축제 길찾기 지도. 부스·화장실·편의시설 검색과 거리 안내."
     }
   ]
 }
