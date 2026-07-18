@@ -1,5 +1,6 @@
 {
   "event": "익산 천만송이 국화축제",
+  "liveEdit": true,
   "baseMap": "OSM",
   "image": "map.png",
   "transform": "tps",
