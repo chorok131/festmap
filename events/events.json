@@ -2,6 +2,19 @@
   "_comment": "행사 레지스트리. 새 행사 추가 = events/<슬러그>/ 폴더(georef.json+map.png) 만들고 여기에 한 블록 추가. status: upcoming | live | past. unlisted:true = 직접 링크로만 접근(메인 목록·행사 메뉴 비노출) — 주최 협의 전 데모용.",
   "events": [
     {
+      "slug": "jarasum-2024",
+      "short": "jarasum",
+      "unlisted": true,
+      "name": "제21회 자라섬재즈페스티벌",
+      "venue": "자라섬 (가평)",
+      "city": "경기 가평군",
+      "start": "2024-10-18",
+      "end": "2024-10-20",
+      "status": "past",
+      "image": "events/jarasum-2024/map.png",
+      "summary": "자라섬 페스티벌 맵 위에서 내 현재 위치와 방향을 실시간으로 보여주는 길찾기 지도. 스테이지·화장실·매표소·편의시설 검색과 거리 안내."
+    },
+    {
       "slug": "nami",
       "short": "namisum",
       "unlisted": true,
