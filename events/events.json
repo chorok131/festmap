@@ -2,6 +2,19 @@
   "_comment": "행사 레지스트리. 새 행사 추가 = events/<슬러그>/ 폴더(georef.json+map.png) 만들고 여기에 한 블록 추가. status: upcoming | live | past. unlisted:true = 직접 링크로만 접근(메인 목록·행사 메뉴 비노출) — 주최 협의 전 데모용.",
   "events": [
     {
+      "slug": "jarasum-town-2024",
+      "short": "gapyeong",
+      "unlisted": true,
+      "name": "제21회 자라섬재즈페스티벌 · 가평읍",
+      "venue": "가평읍 일원",
+      "city": "경기 가평군",
+      "start": "2024-10-18",
+      "end": "2024-10-20",
+      "status": "past",
+      "image": "events/jarasum-town-2024/map.png",
+      "summary": "가평읍 광역 지도 위에서 내 위치를 실시간으로. 파티스테이지·재즈스트리트·재즈스테이션·주차장 P1~P7·읍내셔틀·가평역 검색과 길찾기."
+    },
+    {
       "slug": "jarasum-2024",
       "short": "jarasum",
       "unlisted": true,
