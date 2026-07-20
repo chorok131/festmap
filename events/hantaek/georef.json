@@ -1,0 +1,8 @@
+{
+  "event": "한택식물원",
+  "liveEdit": true,
+  "baseMap": "OSM",
+  "image": "map.png",
+  "transform": "tps",
+  "gcps": []
+}

@@ -2,6 +2,19 @@
   "_comment": "행사 레지스트리. 새 행사 추가 = events/<슬러그>/ 폴더(georef.json+map.png) 만들고 여기에 한 블록 추가. status: upcoming | live | past. unlisted:true = 직접 링크로만 접근(메인 목록·행사 메뉴 비노출) — 주최 협의 전 데모용.",
   "events": [
     {
+      "slug": "hantaek",
+      "short": "hantaek",
+      "unlisted": true,
+      "name": "한택식물원",
+      "venue": "한택식물원",
+      "city": "경기 용인시",
+      "start": "2026-07-20",
+      "end": "2027-12-31",
+      "status": "live",
+      "image": "events/hantaek/map.png",
+      "summary": "한택식물원 조감도 위에서 내 현재 위치와 방향을 실시간으로 보여주는 길찾기 지도. 정원·온실·화장실·편의시설 검색과 거리 안내."
+    },
+    {
       "slug": "jarasum-town-2024",
       "short": "gapyeong",
       "unlisted": true,
