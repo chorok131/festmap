@@ -1,4 +1,20 @@
 {
+  "_note_cats": "칩(카테고리) 이름은 아래 cats에서 바꾸세요. label만 고치면 됩니다(아이콘·색은 유지). icon/color를 추가하면 그것도 바뀝니다.",
+  "cats": {
+    "stage":      { "label": "공연장" },
+    "ticket":     { "label": "게이트·검색" },
+    "toilet":     { "label": "화장실" },
+    "food":       { "label": "식당·주류" },
+    "cafe":       { "label": "워터바" },
+    "shop":       { "label": "MD샵" },
+    "store":      { "label": "부스·키오스크" },
+    "medical":    { "label": "의료·안전" },
+    "wheelchair": { "label": "배리어프리" },
+    "locker":     { "label": "물품보관" },
+    "info":       { "label": "안내·편의" },
+    "smoking":    { "label": "흡연구역" },
+    "spot":       { "label": "존·명소" }
+  },
   "pois": [
     { "cat": "stage", "name": "몬스터에너지 스테이지", "x": 475, "y": 320 },
     { "cat": "stage", "name": "KB국민카드 스테이지", "x": 820, "y": 345 },

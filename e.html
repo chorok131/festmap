@@ -626,7 +626,8 @@
       if (!obj) return;
       for (const id in obj) {
         const c = obj[id]; if (!c || !c.label) continue;
-        CAT[id] = { label: c.label, color: c.color || '#2563eb', icon: c.icon || 'pin' };
+        const prev = CAT[id] || {};   // 라벨만 오버라이드 시 기존 아이콘·색 유지(기존 분류 이름 변경용)
+        CAT[id] = { label: c.label, color: c.color || prev.color || '#2563eb', icon: c.icon || prev.icon || 'pin' };
         CUSTOM_CATS[id] = CAT[id];
         if (CHIP_ORDER.indexOf(id) < 0) CHIP_ORDER.push(id);
       }
@@ -667,6 +668,7 @@
       let data;
       try { data = await (await fetch(BASE + 'pois.json')).json(); } catch (e) { data = { pois: [] }; }
       POIS = (data.pois || []).filter(p => p && p.x != null && p.y != null);
+      applyCustomCats(data.cats);                   // 행사별 칩 라벨 오버라이드(pois.json의 "cats"). 라벨만 주면 아이콘·색 유지
       if (LIVE_EDIT) {                              // 셀프 편집 켠 행사: 저장본 있으면 그걸로 대체
         const live = await loadLivePois();
         if (live) { applyCustomCats(live.cats); POIS = (live.pois || []).filter(p => p && p.x != null && p.y != null); }
