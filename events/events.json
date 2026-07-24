@@ -2,6 +2,19 @@
   "_comment": "행사 레지스트리. 새 행사 추가 = events/<슬러그>/ 폴더(georef.json+map.png) 만들고 여기에 한 블록 추가. status: upcoming | live | past. unlisted:true = 직접 링크로만 접근(메인 목록·행사 메뉴 비노출) — 주최 협의 전 데모용.",
   "events": [
     {
+      "slug": "pentaport-2026",
+      "short": "pentaport",
+      "unlisted": true,
+      "name": "2026 인천펜타포트 락 페스티벌",
+      "venue": "송도달빛축제공원",
+      "city": "인천 연수구",
+      "start": "2026-07-31",
+      "end": "2026-08-02",
+      "status": "upcoming",
+      "image": "events/pentaport-2026/map.png",
+      "summary": "행사장 안내도 위에서 내 현재 위치와 방향을 실시간으로 보여주는 2026 인천펜타포트 락 페스티벌 길찾기 지도. 스테이지·화장실·F&B·편의시설 검색과 거리 안내."
+    },
+    {
       "slug": "hantaek",
       "short": "hantaek",
       "unlisted": true,
