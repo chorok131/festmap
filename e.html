@@ -106,6 +106,9 @@
       background: rgba(255,255,255,.96); color: #374151; box-shadow: 0 2px 8px rgba(0,0,0,.15); white-space: nowrap; }
     .chip.on { background: #2563eb; color: #fff; }
     .chip b { font-weight: 700; opacity: .65; }
+    .chip .mv { display: inline-flex; align-items: center; justify-content: center; width: 19px; height: 19px; margin-left: 1px; border-radius: 6px; background: rgba(37,99,235,.12); color: #2563eb; font-weight: 800; font-size: 15px; line-height: 1; }
+    .chip.on .mv { background: rgba(255,255,255,.28); color: #fff; }
+    .chip .mv:active { background: rgba(37,99,235,.3); }
     .ic-svg { flex: 0 0 auto; vertical-align: -3px; }
     /* 검색 결과 드롭다운 */
     #results { background: rgba(255,255,255,.98); border-radius: 10px; box-shadow: 0 4px 14px rgba(0,0,0,.2);
@@ -640,6 +643,7 @@
     }
 
     let POIS = [], pinLayer = L.layerGroup(), labelLayer = L.layerGroup(), activeCats = new Set();
+    let chipOrder = null;   // 행사별 칩(카테고리) 순서 오버라이드 — null이면 CHIP_ORDER 기본
     const poiLatLng = (p) => L.latLng(H - p.y, p.x);
     function escHtml(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 
@@ -658,7 +662,7 @@
         Festmap.withDb((db) => {
           db.collection('events').doc(SLUG).collection('live').doc('pois').get()
             .then((s) => { if (done) return; done = true; clearTimeout(to);
-              try { resolve(s.exists ? { pois: JSON.parse(s.data().pois || '[]'), cats: JSON.parse(s.data().cats || '{}') } : null); } catch (e) { resolve(null); } })
+              try { resolve(s.exists ? { pois: JSON.parse(s.data().pois || '[]'), cats: JSON.parse(s.data().cats || '{}'), order: JSON.parse(s.data().order || 'null') } : null); } catch (e) { resolve(null); } })
             .catch(() => { if (done) return; done = true; clearTimeout(to); resolve(null); });
         });
       });
@@ -669,9 +673,10 @@
       try { data = await (await fetch(BASE + 'pois.json')).json(); } catch (e) { data = { pois: [] }; }
       POIS = (data.pois || []).filter(p => p && p.x != null && p.y != null);
       applyCustomCats(data.cats);                   // 행사별 칩 라벨 오버라이드(pois.json의 "cats"). 라벨만 주면 아이콘·색 유지
+      if (Array.isArray(data.order)) chipOrder = data.order.slice();   // 행사별 칩 순서(pois.json의 "order")
       if (LIVE_EDIT) {                              // 셀프 편집 켠 행사: 저장본 있으면 그걸로 대체
         const live = await loadLivePois();
-        if (live) { applyCustomCats(live.cats); POIS = (live.pois || []).filter(p => p && p.x != null && p.y != null); }
+        if (live) { applyCustomCats(live.cats); if (Array.isArray(live.order)) chipOrder = live.order.slice(); POIS = (live.pois || []).filter(p => p && p.x != null && p.y != null); }
       }
       if (!POIS.length) return;
       pinLayer.addTo(map);
@@ -685,16 +690,36 @@
       nudgeChips();
     }
 
+    // 칩(카테고리) 표시 순서: chipOrder(행사별 오버라이드) 우선, 없으면 CHIP_ORDER 기본. 존재하는 분류만.
+    function effectiveOrder(have) {
+      const base = (chipOrder && chipOrder.length) ? chipOrder : CHIP_ORDER;
+      const ordered = base.filter(c => have.has(c));
+      const rest = [...have].filter(c => !ordered.includes(c)).sort((a, b) => CHIP_ORDER.indexOf(a) - CHIP_ORDER.indexOf(b));
+      return [...ordered, ...rest];
+    }
+    function moveChip(cat, dir, have) {          // 편집 모드: 칩 ‹ › 로 순서 이동
+      const order = effectiveOrder(have);
+      const i = order.indexOf(cat), j = i + dir;
+      if (i < 0 || j < 0 || j >= order.length) return;
+      [order[i], order[j]] = [order[j], order[i]];
+      chipOrder = order;                         // 현재 존재하는 분류 순서로 확정(저장 시 Firestore에 기록)
+      buildChips(); syncChips();
+    }
     function buildChips() {
       const have = new Set(POIS.map(p => p.cat));
       const box = document.getElementById('chips');
       box.innerHTML = '';
-      CHIP_ORDER.filter(c => have.has(c)).forEach(cat => {
+      effectiveOrder(have).forEach(cat => {
         const n = POIS.filter(p => p.cat === cat).length;
         const b = document.createElement('button');
         b.className = 'chip'; b.dataset.cat = cat;
-        b.innerHTML = `${svgIcon((CAT[cat] || {}).icon)}<span>${(CAT[cat] || {}).label || cat}</span><b>${n}</b>`;
-        b.onclick = () => { activeCats.has(cat) ? activeCats.delete(cat) : activeCats.add(cat); renderPins(); syncChips(); };
+        const mv = EDIT ? `<span class="mv" data-mv="-1" title="앞으로">‹</span><span class="mv" data-mv="1" title="뒤로">›</span>` : '';
+        b.innerHTML = `${svgIcon((CAT[cat] || {}).icon)}<span>${(CAT[cat] || {}).label || cat}</span><b>${n}</b>${mv}`;
+        b.onclick = (e) => {
+          const m = e.target.closest('.mv');
+          if (m) { e.stopPropagation(); moveChip(cat, +m.dataset.mv, have); return; }
+          activeCats.has(cat) ? activeCats.delete(cat) : activeCats.add(cat); renderPins(); syncChips();
+        };
         box.appendChild(b);
       });
       updateChipMore();
@@ -842,6 +867,7 @@
       };
       document.getElementById('editbar').classList.add('on');
       new Set(POIS.map(p => p.cat)).forEach(c => activeCats.add(c));   // 편집 땐 전부 표시
+      buildChips();   // 편집 모드: 칩에 ‹ › 순서이동 버튼 표시
       refreshPois(); syncChips();
       map.on('click', (e) => {
         const x = Math.round(e.latlng.lng), y = Math.round(H - e.latlng.lat);
@@ -875,7 +901,7 @@
           const ev = db.collection('events').doc(SLUG);
           const batch = db.batch();
           batch.set(handshakeRef(db), handshakeData(fb));
-          batch.set(ev.collection('live').doc('pois'), { pois: JSON.stringify(POIS), cats: JSON.stringify(CUSTOM_CATS), updated: fb.firestore.FieldValue.serverTimestamp() });
+          batch.set(ev.collection('live').doc('pois'), { pois: JSON.stringify(POIS), cats: JSON.stringify(CUSTOM_CATS), order: JSON.stringify(chipOrder || effectiveOrder(new Set(POIS.map(p => p.cat)))), updated: fb.firestore.FieldValue.serverTimestamp() });
           batch.commit()
             .then(() => toast('저장됨 ✓ 모든 사용자에게 반영돼요'))
             .catch((e) => toast('저장 실패: ' + ((e && e.code) || e)));
