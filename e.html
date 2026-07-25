@@ -240,7 +240,7 @@
       refreshPois(); buildChips(); syncChips(); map.closePopup(); toast('실행취소 ↩︎ (' + editHistory.length + '단계 남음)');
     }
 
-    const map = L.map('map', { crs: L.CRS.Simple, minZoom: -6, maxZoom: 4, zoomControl: false, attributionControl: false, fadeAnimation: true, maxBoundsViscosity: 1.0 });
+    const map = L.map('map', { crs: L.CRS.Simple, minZoom: -6, maxZoom: 4, zoomSnap: 0, zoomControl: false, attributionControl: false, fadeAnimation: true, maxBoundsViscosity: 1.0 });
     const statusEl = document.getElementById('status');
     const setStatus = (t, warn) => { statusEl.style.display = ''; statusEl.textContent = t; statusEl.classList.toggle('warn', !!warn); };
 
