@@ -244,6 +244,29 @@
     const statusEl = document.getElementById('status');
     const setStatus = (t, warn) => { statusEl.style.display = ''; statusEl.textContent = t; statusEl.classList.toggle('warn', !!warn); };
 
+    // ── 초기 뷰: 약도가 화면에 꽉 차게 ──
+    // zoomSnap:0이라 정수 줌으로 내림되지 않고 딱 맞는 배율이 나온다(세로 약도는 폭이 꽉 참).
+    // viewLocked: 사용자가 지도를 만지거나(핀치·드래그) 검색·내위치로 이동한 뒤엔 자동 재맞춤 중단.
+    let IMG_BOUNDS = null, viewLocked = false;
+    function fitMap() {
+      if (!IMG_BOUNDS) return;
+      const s = map.getSize();
+      if (!s.x || !s.y) return;            // 컨테이너 크기가 아직 0이면 ResizeObserver가 다시 부른다
+      map.setMinZoom(-6);                  // 이전 화면 크기로 잡힌 하한을 풀고 다시 계산
+      const z = map.getBoundsZoom(IMG_BOUNDS);
+      map.setView(L.latLngBounds(IMG_BOUNDS).getCenter(), z, { animate: false });
+      map.setMinZoom(z);                   // 약도보다 더 축소 = 회색 여백만 늘어남 → 막음
+    }
+    // 화면 크기가 뒤늦게 잡히는 환경(인앱 브라우저, 백그라운드 로드, 주소창 접힘, 화면 회전) 대응
+    const refit = () => { if (!viewLocked) { map.invalidateSize({ animate: false }); fitMap(); } };
+    window.addEventListener('resize', refit);
+    window.addEventListener('orientationchange', refit);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) refit(); });
+    const lockView = () => { viewLocked = true; };
+    document.getElementById('map').addEventListener('pointerdown', lockView, { passive: true });
+    document.getElementById('map').addEventListener('touchstart', lockView, { passive: true });
+    document.getElementById('map').addEventListener('wheel', lockView, { passive: true });
+
     // ── 행사 전환: 제목 ▾ 누르면 다른 행사 선택 ──
     const eventMenu = document.getElementById('eventMenu');
     let eventsLoaded = false;
@@ -405,7 +428,7 @@
       else { const a = 0.5; meTgt.px += (px - meTgt.px) * a; meTgt.py += (py - meTgt.py) * a; meTgt.acc += (accPx - meTgt.acc) * a; }
 
       const tll = pxToLatLng(meTgt.px, meTgt.py);
-      if (!located) { located = true; follow = true; updateFollowBtn(); map.flyTo(tll, LOCATE_ZOOM, { duration: 0.8 }); }
+      if (!located) { located = true; follow = true; updateFollowBtn(); lockView(); map.flyTo(tll, LOCATE_ZOOM, { duration: 0.8 }); }
       else if (follow && !meOutside) map.panTo(tll, { animate: true, duration: 0.6 });
       startMeAnim();   // 마커/정확도원을 목표로 부드럽게 이동(glide)
 
@@ -512,10 +535,14 @@
       }
       const bounds = [[0, 0], [H, W]];
       L.imageOverlay(imgUrl, bounds).addTo(map);
-      map.fitBounds(bounds);
-      // 지도 밖(회색 빈 공간)으로 못 나가게 경계·축소 한정
+      // 지도 밖(회색 빈 공간)으로 못 나가게 경계 한정 (축소 한정은 fitMap에서 화면 크기에 맞춰)
       map.setMaxBounds(L.latLngBounds(bounds).pad(0.05));
-      map.setMinZoom(map.getBoundsZoom(bounds));
+      IMG_BOUNDS = bounds;
+      fitMap();
+      // 인앱 브라우저(인스타·카톡)나 백그라운드 탭은 지도 div 크기가 0이거나 늦게 잡힌다.
+      // → 그때 한 fitBounds가 엉뚱하게 작은 배율로 굳어버림. 크기가 잡히면 다시 맞춘다
+      //   (사용자가 지도를 만진 뒤에는 화면이 튀지 않게 중단).
+      if (window.ResizeObserver) new ResizeObserver(refit).observe(document.getElementById('map'));
       hom = buildHom(g.corners);
       homInv = invert3(hom);
       if (g.transform === 'tps' && Array.isArray(g.gcps) && g.gcps.length >= 4) {
@@ -999,7 +1026,7 @@
             const x = +row.dataset.x, y = +row.dataset.y;
             const p = POIS.find(pp => pp.x === x && pp.y === y);
             res.classList.remove('on'); q.value = '';
-            map.setView(poiLatLng(p), 2, { animate: true });
+            lockView(); map.setView(poiLatLng(p), 2, { animate: true });
             openPoi(p);
           };
         });
@@ -1063,7 +1090,7 @@
       sharedMarker = L.marker(poiLatLng(sharedXY), { icon: pinIcon('shared', true), zIndexOffset: 950 }).addTo(map);
       const t = +sp.get('t');
       const ago = t ? ' · ' + Math.max(0, Math.round((Date.now() - t) / 60000)) + '분 전' : '';
-      map.setView(poiLatLng(sharedXY), 1);
+      lockView(); map.setView(poiLatLng(sharedXY), 1);
       document.getElementById('navName').textContent = '공유받은 위치' + ago;
       document.getElementById('navbar').classList.add('on');
       document.getElementById('follow').classList.add('navup');   // 카드가 "내 위치" 버튼을 가리지 않게 위로
