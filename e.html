@@ -244,16 +244,18 @@
     const statusEl = document.getElementById('status');
     const setStatus = (t, warn) => { statusEl.style.display = ''; statusEl.textContent = t; statusEl.classList.toggle('warn', !!warn); };
 
-    // ── 초기 뷰: 약도가 화면에 꽉 차게 ──
-    // zoomSnap:0이라 정수 줌으로 내림되지 않고 딱 맞는 배율이 나온다(세로 약도는 폭이 꽉 참).
+    // ── 초기 뷰: 약도를 화면에 맞추되 가장자리에 살짝 여백 ──
+    // zoomSnap:0이라 정수 줌으로 내림되지 않고 딱 맞는 배율이 나온다(세로 약도는 폭이 거의 꽉 참).
     // viewLocked: 사용자가 지도를 만지거나(핀치·드래그) 검색·내위치로 이동한 뒤엔 자동 재맞춤 중단.
+    const FIT_PAD = 0.05;                  // 좌우 여백 비율(화면 폭 대비 한쪽) — 약도가 화면에 닿지 않게
     let IMG_BOUNDS = null, viewLocked = false;
     function fitMap() {
       if (!IMG_BOUNDS) return;
       const s = map.getSize();
       if (!s.x || !s.y) return;            // 컨테이너 크기가 아직 0이면 ResizeObserver가 다시 부른다
       map.setMinZoom(-6);                  // 이전 화면 크기로 잡힌 하한을 풀고 다시 계산
-      const z = map.getBoundsZoom(IMG_BOUNDS);
+      const pad = Math.round(s.x * FIT_PAD) * 2;   // getBoundsZoom은 양쪽 합계를 뺀다
+      const z = map.getBoundsZoom(IMG_BOUNDS, false, [pad, pad]);
       map.setView(L.latLngBounds(IMG_BOUNDS).getCenter(), z, { animate: false });
       map.setMinZoom(z);                   // 약도보다 더 축소 = 회색 여백만 늘어남 → 막음
     }
