@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <title>미니맵 — GPS 약도</title>
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2563eb"/>
+      <stop offset="1" stop-color="#1d4ed8"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="102" fill="url(#g)"/>
+  <path d="M 242.06 135.13 A 15.36 15.36 0 0 1 269.94 135.13 L 377.31 367.42 A 15.36 15.36 0 0 1 356.01 387.35 L 263.36 336.81 A 15.36 15.36 0 0 0 248.64 336.81 L 155.99 387.35 A 15.36 15.36 0 0 1 134.69 367.42 L 242.06 135.13 Z" fill="#fff"/>
+</svg>
