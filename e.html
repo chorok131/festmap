@@ -253,12 +253,19 @@
     let IMG_BOUNDS = null, viewLocked = false;
     function fitMap() {
       if (!IMG_BOUNDS) return;
-      const s = map.getSize();
-      if (!s.x || !s.y) return;            // 컨테이너 크기가 아직 0이면 ResizeObserver가 다시 부른다
+      const el = document.getElementById('map');
+      // 크기 판정은 DOM에서 직접 — map.getSize()는 0으로 캐시돼 있을 수 있다(아래 참고)
+      if (!el.clientWidth || !el.clientHeight) return;   // 아직 0이면 ResizeObserver가 다시 부른다
+      const c = L.latLngBounds(IMG_BOUNDS).getCenter();
+      // 0×0 컨테이너에서 초기화된 지도는 _size가 0으로 캐시되고, invalidateSize()는 뷰가 없으면
+      // 아무것도 안 한다 → 뷰 없음/캐시 0이 서로를 막아 영영 안 그려진다(인앱 브라우저·백그라운드 탭).
+      // 임시 뷰를 먼저 세워 그 교착을 푼 뒤 다시 재보고 배율을 계산한다.
+      if (typeof map.getZoom() !== 'number') map.setView(c, 0, { animate: false });
+      map.invalidateSize({ animate: false });
       map.setMinZoom(-6);                  // 이전 화면 크기로 잡힌 하한을 풀고 다시 계산
-      const pad = Math.round(s.x * FIT_PAD) * 2;   // getBoundsZoom은 양쪽 합계를 뺀다
+      const pad = Math.round(el.clientWidth * FIT_PAD) * 2;   // getBoundsZoom은 양쪽 합계를 뺀다
       const z = map.getBoundsZoom(IMG_BOUNDS, false, [pad, pad]);
-      map.setView(L.latLngBounds(IMG_BOUNDS).getCenter(), z, { animate: false });
+      map.setView(c, z, { animate: false });
       map.setMinZoom(z);                   // 약도보다 더 축소 = 회색 여백만 늘어남 → 막음
     }
     // 화면 크기가 뒤늦게 잡히는 환경(인앱 브라우저, 백그라운드 로드, 주소창 접힘, 화면 회전) 대응
