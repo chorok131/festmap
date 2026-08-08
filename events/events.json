@@ -15,6 +15,19 @@
       "summary": "행사장 안내도 위에서 내 현재 위치와 방향을 실시간으로 보여주는 2026 인천펜타포트 락 페스티벌 길찾기 지도. 스테이지·화장실·F&B·편의시설 검색과 거리 안내."
     },
     {
+      "slug": "gimpo",
+      "short": "gimpo",
+      "unlisted": true,
+      "name": "김포캠핑파크",
+      "venue": "김포캠핑파크",
+      "city": "경기 김포시",
+      "start": "2026-08-08",
+      "end": "2027-12-31",
+      "status": "live",
+      "image": "events/gimpo/map.jpg",
+      "summary": "김포캠핑파크 안내도 위에서 내 현재 위치와 방향을 실시간으로 보여주는 길찾기 지도. 텐트·데크·카라반 사이트 번호 검색과 화장실·샤워실·세척장 길안내."
+    },
+    {
       "slug": "hantaek",
       "short": "hantaek",
       "unlisted": true,
