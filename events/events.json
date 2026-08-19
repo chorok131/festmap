@@ -2,6 +2,18 @@
   "_comment": "행사 레지스트리. 새 행사 추가 = events/<슬러그>/ 폴더(georef.json+map.png) 만들고 여기에 한 블록 추가. status: upcoming | live | past. unlisted:true = 직접 링크로만 접근(메인 목록·행사 메뉴 비노출) — 주최 협의 전 데모용.",
   "events": [
     {
+      "slug": "seoul-bbq-2026",
+      "short": "seoulbbq",
+      "unlisted": true,
+      "name": "서울바비큐페스타",
+      "venue": "노을공원 캠핑장 일대",
+      "city": "서울 마포구",
+      "status": "upcoming",
+      "_dates": "2026 회차 일정 미공개 — 공개되면 start/end 추가할 것",
+      "image": "events/seoul-bbq-2026/map.png",
+      "summary": "노을공원 행사장 안내도 위에서 내 현재 위치와 방향을 실시간으로 보여주는 서울바비큐페스타 길찾기 지도. 부스·화장실·개수대·분리수거·맹꽁이열차 정류장 검색과 거리 안내."
+    },
+    {
       "slug": "pentaport-2026",
       "short": "pentaport",
       "unlisted": true,
