@@ -2,6 +2,19 @@
   "_comment": "행사 레지스트리. 새 행사 추가 = events/<슬러그>/ 폴더(georef.json+map.png) 만들고 여기에 한 블록 추가. status: upcoming | live | past. unlisted:true = 직접 링크로만 접근(메인 목록·행사 메뉴 비노출) — 주최 협의 전 데모용.",
   "events": [
     {
+      "slug": "geumsan-2026",
+      "short": "geumsan",
+      "unlisted": true,
+      "name": "제44회 금산세계인삼축제",
+      "venue": "금산인삼관·인삼약초시장 일원",
+      "city": "충남 금산군",
+      "start": "2026-10-02",
+      "end": "2026-10-11",
+      "status": "upcoming",
+      "image": "events/geumsan-2026/map_labeled.jpg",
+      "summary": "행사장 배치도 위에서 내 현재 위치와 방향을 실시간으로 보여주는 제44회 금산세계인삼축제 길찾기 지도. 번호 대신 이름이 그대로 적힌 지도에서 체험·먹거리·무대·화장실·안내소 검색과 거리 안내."
+    },
+    {
       "slug": "seoul-bbq-2026",
       "short": "seoulbbq",
       "unlisted": true,
