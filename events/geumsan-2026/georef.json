@@ -2,6 +2,7 @@
   "event": "제44회 금산세계인삼축제",
   "baseMap": "OSM",
   "image": "map_labeled.jpg",
+  "liveEdit": true,
   "transform": "tps",
   "rmsMeters": 5.161357061751102e-07,
   "corners": {
