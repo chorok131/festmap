@@ -72,6 +72,13 @@
     .badge.live { background:#dcfce7; color:#166534; }
     .badge.past { background:#f1f5f9; color:#64748b; }
     #empty { color: var(--muted); font-size: 14px; }
+    /* 대표 행사: 목록 맨 위 전체 폭 카드 */
+    .card.featured { grid-column: 1 / -1; border: 2px solid var(--blue); box-shadow: 0 8px 28px rgba(37,99,235,.14); }
+    .card.featured .thumb { aspect-ratio: 16/8; background-position: center; }
+    .card.featured .body { padding: 18px 20px; }
+    .card.featured .name { font-size: 20px; letter-spacing: -.3px; }
+    .card.featured .go { display: inline-block; margin-top: 4px; font-size: 14px; font-weight: 700; color: var(--blue); }
+    .badge.dday { background: var(--blue); color: #fff; }
 
     .how { background: var(--bg); border-radius: 14px; padding: 22px 24px; }
     .how ol { margin: 8px 0 0; padding-left: 20px; }
@@ -162,18 +169,26 @@
         const list = document.getElementById('list');
         events = (events || []).filter(ev => !ev.unlisted);   // unlisted = 직접 링크로만(주최 협의 전 데모) — 목록 비노출
         if (!events || !events.length) { document.getElementById('empty').textContent = '아직 등록된 행사가 없습니다.'; return; }
-        // 다가오는 행사 먼저, 그다음 진행중, 지난 행사
+        // 상태는 날짜가 있으면 날짜로 판정 — events.json의 status를 개막일에 손으로 안 바꿔도 '진행 중'으로 넘어감
+        const today = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);   // 한국 날짜
+        const stOf = (ev) => (ev.start && ev.end)
+          ? (today < ev.start ? 'upcoming' : today > ev.end ? 'past' : 'live') : (ev.status || 'upcoming');
+        const dday = (ev) => Math.round((Date.parse(ev.start) - Date.parse(today)) / 864e5);
+        // 대표 행사 맨 앞, 그다음 다가오는 행사 → 진행중 → 지난 행사
         const order = { upcoming: 0, live: 1, past: 2 };
-        events.sort((a, b) => (order[a.status] ?? 9) - (order[b.status] ?? 9) || (b.start || '').localeCompare(a.start || ''));
+        events.sort((a, b) => (b.featured ? 1 : 0) - (a.featured ? 1 : 0)
+          || (order[stOf(a)] ?? 9) - (order[stOf(b)] ?? 9) || (b.start || '').localeCompare(a.start || ''));
         list.innerHTML = events.map(ev => {
           const thumb = ev.image || `events/${ev.slug}/map.png`;  // 뷰어와 같은 이미지 → 캐시 예열
-          const st = ev.status || 'upcoming';
-          return `<a class="card" href="e.html?event=${encodeURIComponent(ev.slug)}">
+          const st = stOf(ev);
+          const dd = ev.featured && st === 'upcoming' && ev.start ? `<span class="badge dday">D-${dday(ev)}</span>` : '';
+          return `<a class="card${ev.featured ? ' featured' : ''}" href="e.html?event=${encodeURIComponent(ev.slug)}">
             <div class="thumb" style="background-image:url('${thumb}')"></div>
             <div class="body">
-              <p class="name">${ev.name}<span class="badge ${st}">${BADGE[st] || ''}</span></p>
+              <p class="name">${ev.name}<span class="badge ${st}">${BADGE[st] || ''}</span>${dd}</p>
               <p class="meta">${[ev.venue, fmtPeriod(ev.start, ev.end)].filter(Boolean).join(' · ')}</p>
               <p class="meta" style="color:#374151">${ev.summary || ''}</p>
+              ${ev.featured ? '<span class="go">미니맵 열기 ▸</span>' : ''}
             </div></a>`;
         }).join('');
       })

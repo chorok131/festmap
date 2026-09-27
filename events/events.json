@@ -1,10 +1,10 @@
 {
-  "_comment": "행사 레지스트리. 새 행사 추가 = events/<슬러그>/ 폴더(georef.json+map.png) 만들고 여기에 한 블록 추가. status: upcoming | live | past. unlisted:true = 직접 링크로만 접근(메인 목록·행사 메뉴 비노출) — 주최 협의 전 데모용.",
+  "_comment": "행사 레지스트리. 새 행사 추가 = events/<슬러그>/ 폴더(georef.json+map.png) 만들고 여기에 한 블록 추가. status: upcoming | live | past. unlisted:true = 직접 링크로만 접근(메인 목록·행사 메뉴 비노출) — 주최 협의 전 데모용. featured:true = 메인 목록 맨 위에 전체 폭 대표 카드로 노출.",
   "events": [
     {
       "slug": "geumsan-2026",
       "short": "geumsan",
-      "unlisted": true,
+      "featured": true,
       "name": "제44회 금산세계인삼축제",
       "venue": "금산인삼관·인삼약초시장 일원",
       "city": "충남 금산군",
