@@ -118,11 +118,11 @@
   <main class="wrap">
     <section class="demoSec">
       <div class="demoFrame" id="demoFrame">
-        <img id="demoMap" alt="2026 서울국제정원박람회 약도 위 실시간 내 위치 예시" />
+        <img id="demoMap" alt="제44회 금산세계인삼축제 행사장 배치도 위 실시간 내 위치 예시" />
         <div class="me" id="me"><div class="cone" id="cone"></div><div class="dot"></div></div>
         <span class="demoBadge"><span class="dotpulse"></span>실시간 위치 예시</span>
       </div>
-      <p class="demoCap">행사장에서 <b>"내 위치"</b>를 누르면, 약도 위에 내 위치(파란 점)와 바라보는 방향(부채꼴)이 실시간으로 표시됩니다. — 2026 서울국제정원박람회 약도</p>
+      <p class="demoCap">행사장에서 <b>"내 위치"</b>를 누르면, 약도 위에 내 위치(파란 점)와 바라보는 방향(부채꼴)이 실시간으로 표시됩니다. — 제44회 금산세계인삼축제 행사장 배치도</p>
     </section>
 
     <section>
@@ -187,7 +187,7 @@
             <div class="body">
               <p class="name">${ev.name}<span class="badge ${st}">${BADGE[st] || ''}</span>${dd}</p>
               <p class="meta">${[ev.venue, fmtPeriod(ev.start, ev.end)].filter(Boolean).join(' · ')}</p>
-              <p class="meta" style="color:#374151">${ev.summary || ''}</p>
+              ${ev.summary ? `<p class="meta" style="color:#374151">${ev.summary}</p>` : ''}
               ${ev.featured ? '<span class="go">미니맵 열기 ▸</span>' : ''}
             </div></a>`;
         }).join('');
@@ -211,7 +211,7 @@
         <path d="M48,48 L${x1},${y1} A${r},${r} 0 0 1 ${x2},${y2} Z" fill="url(#cg)"/></svg>`;
 
       // 약도 위를 한 바퀴 도는 경로(분수 좌표) — 주요 구역을 훑는 산책 동선
-      const PATH = [[0.20,0.56],[0.31,0.47],[0.43,0.50],[0.53,0.37],[0.65,0.43],[0.71,0.59],[0.58,0.67],[0.46,0.71],[0.34,0.63],[0.24,0.66]];
+      const PATH = [[0.609,0.463],[0.664,0.405],[0.731,0.429],[0.786,0.467],[0.826,0.529],[0.797,0.586],[0.744,0.637],[0.688,0.625],[0.643,0.576],[0.593,0.529]];   // 금산 엑스포광장 한 바퀴(체험존→종합상황실→주무대→잔디광장)
       const SEG_MS = 1700;           // 점 사이 이동 시간
       let i = 0, t0 = 0, headingDeg = 0, raf = null;
 
@@ -240,7 +240,7 @@
       img.onerror = () => { frame.style.display = 'none'; };  // 약도 못 불러오면 데모만 숨김(나머지 페이지는 정상)
       me.style.opacity = 0;
       // 뷰어와 같은 약도 이미지 → 클릭해서 들어갈 때 캐시 예열됨
-      img.src = 'events/seoulforest-2026/map_labeled.png';
+      img.src = 'events/geumsan-2026/map_labeled.jpg';
       // 탭이 안 보일 땐 애니메이션 정지(배터리 절약)
       document.addEventListener('visibilitychange', () => {
         if (document.hidden) cancelAnimationFrame(raf);
