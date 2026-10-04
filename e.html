@@ -438,8 +438,14 @@
       if (!meTgt) { meTgt = { px: px, py: py, acc: accPx }; meCur = { px: px, py: py, acc: accPx }; }
       else { const a = 0.5; meTgt.px += (px - meTgt.px) * a; meTgt.py += (py - meTgt.py) * a; meTgt.acc += (accPx - meTgt.acc) * a; }
 
+      // 처음 행사장 안으로 들어온 순간엔 평활 기준점을 새로 잡는다 — 밖(주차장·이동 중)에서 잡힌 옛 위치에서
+      // 반씩 끌려오면 첫 화면이 엉뚱한 곳으로 날아간다.
+      if (!located && !meOutside) { meTgt = { px: px, py: py, acc: accPx }; meCur = { px: px, py: py, acc: accPx }; }
       const tll = pxToLatLng(meTgt.px, meTgt.py);
-      if (!located) { located = true; follow = true; updateFollowBtn(); lockView(); map.flyTo(tll, LOCATE_ZOOM, { duration: 0.8 }); }
+      if (countOnFix) { countOnFix = false; Festmap.track('locate_tap', { event: SLUG, auto: true }); }
+      // 행사장 밖(주차장·집 등)이면 약도 밖으로 날아가지 않고 기다렸다가, 처음 안으로 들어온 순간 그리로 이동·따라가기
+      if (!located && meOutside) updateFollowBtn();
+      else if (!located) { located = true; follow = true; updateFollowBtn(); lockView(); map.flyTo(tll, LOCATE_ZOOM, { duration: 0.8 }); }
       else if (follow && !meOutside) map.panTo(tll, { animate: true, duration: 0.6 });
       startMeAnim();   // 마커/정확도원을 목표로 부드럽게 이동(glide)
 
@@ -478,7 +484,7 @@
       const on = located && follow;
       followBtn.classList.toggle('on', on);
       document.getElementById('followTxt').textContent =
-        !located ? (watching ? '찾는 중…' : '내 위치') : (follow ? '따라가는 중' : '내 위치');
+        !located ? (watching ? (meOutside ? '행사장 밖' : '찾는 중…') : '내 위치') : (follow ? '따라가는 중' : '내 위치');
     }
     // "내 위치" 버튼: 첫 탭=권한+따라가기, 이후 탭=따라가기 켜고/끄기(그 자리서 둘러보기)
     followBtn.addEventListener('click', () => {
@@ -488,15 +494,29 @@
     });
     map.on('dragstart', () => { if (follow) { follow = false; updateFollowBtn(); } });
 
+    function askOrientOnFirstTouch() {
+      const ask = () => {
+        document.removeEventListener('touchend', ask, true); document.removeEventListener('click', ask, true);
+        if (orientAsked) return; orientAsked = true;
+        DeviceOrientationEvent.requestPermission()
+          .then((s) => { if (s === 'granted') window.addEventListener('deviceorientation', onOrient, true); })
+          .catch(() => {});
+      };
+      document.addEventListener('touchend', ask, true); document.addEventListener('click', ask, true);
+    }
     // 위치 추적 시작(권한 동의 포함). 중복 호출 방지.
-    async function startLocating() {
+    // auto=true: QR로 들어와 페이지가 스스로 켠 경우. 이때는 '위치사용' 집계를 실제로 위치를 받은 순간으로 미룬다
+    // (자동으로 권한 창만 띄우고 거절한 사람까지 위치사용으로 세면 리포트가 부풀려짐).
+    let countOnFix = false, orientAsked = false;
+    async function startLocating(auto) {
       if (watching) return;
       setStatus('권한 요청 중…');
-      Festmap.track('locate_tap', { event: SLUG });
+      if (auto) countOnFix = true; else Festmap.track('locate_tap', { event: SLUG });
       try {
         if (window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === 'function') {
-          const s = await DeviceOrientationEvent.requestPermission();
-          if (s === 'granted') window.addEventListener('deviceorientation', onOrient, true);
+          // iPhone 나침반 권한은 '사용자가 직접 누른 순간'에만 물을 수 있다 → 자동 시작이면 첫 터치 때 묻는다
+          if (auto) askOrientOnFirstTouch();
+          else { orientAsked = true; const s = await DeviceOrientationEvent.requestPermission(); if (s === 'granted') window.addEventListener('deviceorientation', onOrient, true); }
         } else {
           window.addEventListener('deviceorientationabsolute', onOrient, true);
           window.addEventListener('deviceorientation', onOrient, true);
@@ -580,6 +600,13 @@
       await setupPois();                          // 핀/검색 (pois.json + 셀프 편집 저장본)
       setupEdit();                                // 편집 모드면 추가/저장 도구
       showShared();                               // 공유받은 위치(?at=) 있으면 표시
+      // QR·단축주소(?loc=1)로 들어오면 '내 위치'를 누르지 않아도 바로 권한을 묻고 위치를 켠다.
+      // 홈페이지 카드로 들어온 사람(둘러보기)이나 공유 위치(?at=)를 받은 사람에겐 자동으로 안 띄운다.
+      const qs = new URLSearchParams(location.search);
+      if (qs.get('loc') === '1') {
+        qs.delete('loc'); history.replaceState(null, '', location.pathname + '?' + qs.toString() + location.hash);
+        if (!qs.get('at')) startLocating(true);
+      }
     })();
 
     // ───────────────── POI: 시설 찾기 + 길찾기 ─────────────────
